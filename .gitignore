@@ -1,5 +1,14 @@
-portaudio/**/*
+.vscode/**/*
+
+build/**/*
 a.out
 MidiSynth
 midiSynth
+
+portaudio/**/*
 *.tgz
+
+CMakeFiles/**/*
+CMakeCache.txt
+cmake_install.cmake
+Makefile

@@ -14,6 +14,13 @@ On debian or ubuntu you need these packages:
 gcc midiSynth.c -Wall -lm -lportaudio -lasound -pthread -o midiSynth
 ```
 
+### cmake alternative build
+
+```
+cmake -B .
+cmake --build .
+```
+
 ## example usage
 
 Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
@@ -23,16 +30,22 @@ For sinus wave:
 ./midiSynth hw:2,0,0 sin
 ```
 
-For square sound effect:
-```
-./midiSynth hw:2,0,0 sqr
-```
-
 For saw sound effect:
 ```
 ./midiSynth hw:2,0,0 saw
 ```
 
-The *change instrument* buttons on your keyboard should toggle trough the modes **sinus**, **square** and**saw**.
+For square sound effect:
+```
+./midiSynth hw:2,0,0 sqr
+```
+
+For triangle sound effect:
+```
+./midiSynth hw:2,0,0 tri
+```
+
+The *change instrument* buttons on your keyboard should toggle trough
+the modes **sinus**, **saw**, **square** and **triangle**.
 
 Quit the application with `CRTL + c`.
