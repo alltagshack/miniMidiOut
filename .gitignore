@@ -1,0 +1,5 @@
+portaudio/**/*
+a.out
+MidiSynth
+midiSynth
+*.tgz
