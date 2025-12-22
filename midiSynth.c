@@ -5,10 +5,14 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define SAMPLE_RATE 48000
 #define FRAMES_PER_BUFFER 128
 #define MAX_VOICES 16
+
+#define WINDOW_MS 1500U
+#define NEEDED    3U
 
 typedef struct {
   double freq;
@@ -27,13 +31,20 @@ static volatile Modus mode = SAW;
 
 Voice voices[MAX_VOICES];
 
-void handleSig(int sig) { keepRunning = 0; }
+void handleSig (int sig) { keepRunning = 0; }
 
-float midi2Freq(unsigned char *note) {
+float midi2Freq (unsigned char *note) {
   return 440.0f * powf(2.0f, (*note - 69) / 12.0f);
 }
 
-Voice *getVoiceForNote() {
+static unsigned int now (void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    /* (seconds * 1000) + (nanoseconds / 1 000 000) a 32‑Bit‑Overflow is ok */
+    return (unsigned int)(ts.tv_sec * 1000U + ts.tv_nsec / 1000000U);
+}
+
+Voice *getVoiceForNote () {
   int i;
   for (i = 0; i < MAX_VOICES; i++) {
     if (voices[i].active == 0)
@@ -42,7 +53,7 @@ Voice *getVoiceForNote() {
   return &voices[0];
 }
 
-Voice *findVoiceByFreq(float *freq) {
+Voice *findVoiceByFreq (float *freq) {
   int i;
   for (i = 0; i < MAX_VOICES; i++) {
     if ((voices[i].active == 1) && voices[i].freq == *freq)
@@ -51,7 +62,7 @@ Voice *findVoiceByFreq(float *freq) {
   return NULL;
 }
 
-static int audioCallback(const void *inputBuffer, void *outputBuffer,
+static int audioCallback (const void *inputBuffer, void *outputBuffer,
                          unsigned long framesPerBuffer,
                          const PaStreamCallbackTimeInfo *timeInfo,
                          PaStreamCallbackFlags statusFlags, void *userData) {
@@ -113,11 +124,38 @@ static int audioCallback(const void *inputBuffer, void *outputBuffer,
   return paContinue;
 }
 
-void *midiReadThread(void *data) {
+void switchMode (char m) {
+  if (m == '\0') {
+    if (mode == SAW) m = 'q'; // -> sQuare
+    if (mode == SQUARE) m = 'r'; // -> tRiangle
+    if (mode == TRIANGLE) m = 'i'; // -> sInus
+    if (mode == SINUS) m = 'a'; // -> sAw
+  }
+
+  if (m == 'i') {
+    printf("~~~~ sinus\n");
+    mode = SINUS;
+  } else if (m == 'a') {
+    printf("//// saw\n");
+    mode = SAW;
+  } else if (m == 'q') {
+    printf("_||_ square\n");
+    mode = SQUARE;
+  } else if (m == 'r') {
+    printf("/\\/\\ triangle\n");
+    mode = TRIANGLE;
+  }
+
+}
+
+void *midiReadThread (void *data) {
   unsigned char buffer[3];
   PaStream *stream;
   PaError err;
-
+  unsigned int count    = 0;
+  unsigned int start_ms = 0;
+  int old_sustain = 0;
+  
   err = Pa_Initialize();
   if (err != paNoError)
     goto error;
@@ -176,25 +214,26 @@ void *midiReadThread(void *data) {
 
         printf("sustain: 0x%X\n", vel);
 
+        if (old_sustain == 1 && sustain == 0 && Pa_IsStreamStopped(stream)) {
+          if (count == 0) start_ms = now();
+          count++;
+        }
+
+        if (count > 0 && ( (now() - start_ms ) > WINDOW_MS)) {
+          count = 0;
+        }
+
+        if (count >= NEEDED)
+        {
+          count = 0;
+          switchMode('\0');
+        }
+
+        old_sustain = sustain;
+
       } else if ((status & 0xF0) == 0xB0 && note == 0x00) {
 
-        switch (mode) {
-        case SAW:
-          mode = SQUARE;
-          printf("_||_ SQUARE\n");
-          break;
-        case SQUARE:
-          mode = TRIANGLE;
-          printf("/\\/\\ TRIANGLE\n");
-          break;
-        case TRIANGLE:
-          mode = SINUS;
-          printf("~~~~ SINUS\n");
-          break;
-        default:
-          mode = SAW;
-          printf("//// SAW\n");
-        }
+        switchMode('\0');
 
       } else if ((status & 0xF0) == 0x80 ||
                  ((status & 0xF0) == 0x90 && vel == 0)) {
@@ -226,7 +265,7 @@ error:
   return NULL;
 }
 
-int main(int argc, char *argv[]) {
+int main (int argc, char *argv[]) {
   snd_rawmidi_t *midi_in;
   pthread_t midi_read_thread;
 
@@ -241,19 +280,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  if (argv[2][1] == 'i') {
-    printf("sinus\n");
-    mode = SINUS;
-  } else if (argv[2][1] == 'a') {
-    printf("saw\n");
-    mode = SAW;
-  } else if (argv[2][1] == 'q') {
-    printf("square\n");
-    mode = SQUARE;
-  } else if (argv[2][1] == 'r') {
-    printf("triangle\n");
-    mode = TRIANGLE;
-  }
+  switchMode(argv[2][1]);
+
   signal(SIGINT, handleSig);
 
   pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);

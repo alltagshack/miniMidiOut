@@ -22,9 +22,11 @@ cmake -B .
 cmake --build .
 ```
 
-## example usage
+## Usage
 
 Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
+
+### CLI
 
 For sinus wave:
 ```
@@ -46,10 +48,18 @@ For triangle sound effect:
 ./midiSynth hw:2,0,0 tri
 ```
 
-The *change instrument* buttons on your keyboard should toggle trough
-the modes **sinus**, **saw**, **square** and **triangle**.
-
 Quit the application with `CRTL + c`.
+
+### MIDI device
+
+The *change instrument* buttons on your keyboard
+should toggle through
+the modes **sinus**, **saw**, **square** and **triangle**. 
+
+An alternative way to switch the mode:
+
+- no sound should be played
+- you press the sustain pedal 3 times in 1.5 seconds
 
 ## buildroot mods
 
