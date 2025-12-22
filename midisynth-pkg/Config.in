@@ -1,0 +1,7 @@
+config BR2_PACKAGE_MIDISYNTH
+	bool "midisynth"
+	select BR2_PACKAGE_PORTAUDIO
+	select BR2_PACKAGE_ALSA_LIB
+	select BR2_PACKAGE_ALSA_UTILS
+	help
+		A midi synthesizer.
