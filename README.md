@@ -97,11 +97,20 @@ make menuconfig
 
 Select/set this:
 
-- alsa-utils
-  - amidi
-  - alsamixer
-- midisynth
-- BR2_ROOTFS_OVERLAY="board/raspberrypi/rootfs-overlay"
+- Target packages: Audio and video applications
+  - alsa-utils
+    - amidi
+    - alsamixer
+    - alsaconf
+    - aseqdump
+  - midisynth
+- Target packages: Libraries: Audio/Sound
+  - alsa-lib
+    - everything!
+    - especially *alsa-plugins*
+  - portaudio (alsa + oss support)
+- System configuration: () Root filesystem overlay directories
+  - set the () empty to `board/raspberrypi/rootfs-overlay`
 
 save as `.config` and than do:
 ```
