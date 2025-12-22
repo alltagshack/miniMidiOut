@@ -1,6 +1,7 @@
 # midiSynth
 
-A fast midi input to audio output synthesizer.
+A fast midi input to audio output synthesizer with a delay of
+70 - 120ms on Pi1.
 
 ## build
 
@@ -9,13 +10,6 @@ On debian or ubuntu you need these packages:
 - gcc
 - portaudio19-dev
 - libasound-dev
-
-On Alpine Linux:
-
-- gcc
-- libc-dev
-- alsa-utils
-- portaudio-dev
 
 ```
 gcc midiSynth.c -Wall -lm -lportaudio -lasound -pthread -o midiSynth
