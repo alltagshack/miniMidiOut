@@ -30,26 +30,30 @@ Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (
 
 For sinus wave:
 ```
-./midiSynth hw:2,0,0 sin
+midiSynth hw:2,0,0 sin
 ```
 
 For saw sound effect:
 ```
-./midiSynth hw:2,0,0 saw
+midiSynth hw:2,0,0 saw
 ```
 
 For square sound effect:
 ```
-./midiSynth hw:2,0,0 sqr
+midiSynth hw:2,0,0 sqr
 ```
 
 For triangle sound effect:
 ```
-./midiSynth hw:2,0,0 tri
+midiSynth hw:2,0,0 tri
 ```
 
-`midiSynth` uses the hw:0 audio device as default for output. You can
-change this e.g. `hw:1` with `./midiSynth hw:2,0,0 tri 1`
+`midiSynth` uses the default audio device for output. You can
+change this e.g. `hw:1` with an optional 3rd `midiSynth hw:2,0,0 sin 1`.
+The default is used with `midiSynth hw:2,0,0 tri -1`.
+
+`midiSynth` has an optional 4th parameter for the buffer size. The default
+is 8. You can change this e.g. to 512 with `midiSynth hw:2,0,0 sin -1 512`.
 
 Quit the application with `CRTL + c`.
 
@@ -57,7 +61,7 @@ Quit the application with `CRTL + c`.
 
 The *change instrument* buttons on your keyboard
 should toggle through
-the modes **sinus**, **saw**, **square** and **triangle**. 
+the modes **sinus**, **saw**, **square** and **triangle**.
 
 An alternative way to switch the mode:
 
@@ -70,12 +74,21 @@ copy `pkg/` to buildroot packages:
 ```
 mkdir -p buildroot-2025.02.9/package/midisynth
 cp midisynth-src/pkg/* buildroot-2025.02.9/package/midisynth/
+```
+
+change to buildroot:
+```
 cd buildroot-2025.02.9/
 ```
 
 add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
 	source "package/midisynth/Config.in"
+```
+
+make a `init.d` dir as overlay:
+```
+mkdir -p board/raspberrypi/rootfs-overlay/etc/init.d
 ```
 
 for an autostart add a file `board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth`:
@@ -108,9 +121,11 @@ Select/set this:
 
 - Target packages: Audio and video applications
   - alsa-utils
-    - amidi
     - alsamixer
-    - alsaconf
+    - alsactl
+    - amidi
+    - amixer
+    - aplay
     - aseqdump
   - midisynth
 - Target packages: Libraries: Audio/Sound
