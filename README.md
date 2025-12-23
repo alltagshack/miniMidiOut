@@ -48,6 +48,9 @@ For triangle sound effect:
 ./midiSynth hw:2,0,0 tri
 ```
 
+`midiSynth` uses the hw:0 audio device as default for output. You can
+change this e.g. `hw:1` with `./midiSynth hw:2,0,0 tri 1`
+
 Quit the application with `CRTL + c`.
 
 ### MIDI device
@@ -89,8 +92,14 @@ make it executeable:
 chmod +x board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth
 ```
 
+add a line into `board/raspberrypi/config_default.txt`:
+```
+echo "dtparam=audio=on" >>board/raspberrypi/config_default.txt
+```
+
 make a default pi1 config and start menuconfig:
 ```
+unset LD_LIBRARY_PATH
 make raspberrypi_defconfig
 make menuconfig
 ```
@@ -111,6 +120,8 @@ Select/set this:
   - portaudio (alsa + oss support)
 - System configuration: () Root filesystem overlay directories
   - set the () empty to `board/raspberrypi/rootfs-overlay`
+- Kernel
+  - build devicetree with overlay support
 
 save as `.config` and than do:
 ```
@@ -135,17 +146,3 @@ make midisynth-dirclean
 and then do a complete `make` again.
 
 
-## sd-card mods
-
-add into `config.txt`:
-```
-disable_overscan=1
-dtparam=audio=on
-hdmi_group=1
-hdmi_drive=2
-```
-
-change video in `cmdline.txt`:
-```
-root=/dev/mmcblk0p2 rootwait console=tty1 console=ttyAMA0,115200 video=800x480
-```

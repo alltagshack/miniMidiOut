@@ -26,6 +26,7 @@ typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE } Modus;
 static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
 static volatile int sustain = 0;
+int outputDeviceId = 0;
 
 static volatile Modus mode = SAW;
 
@@ -160,8 +161,28 @@ void *midiReadThread (void *data) {
   if (err != paNoError)
     goto error;
 
-  err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, SAMPLE_RATE,
-                             FRAMES_PER_BUFFER, audioCallback, NULL);
+  PaStreamParameters params;
+  params.device = outputDeviceId;
+  params.channelCount = 2;
+  params.sampleFormat = paFloat32;
+  params.suggestedLatency = Pa_GetDeviceInfo(outputDeviceId)->defaultLowOutputLatency;
+  params.hostApiSpecificStreamInfo = NULL;
+
+  err = Pa_OpenStream(
+    &stream,
+    NULL,
+    &params,
+    SAMPLE_RATE,
+    FRAMES_PER_BUFFER,
+    paClipOff,
+    audioCallback,
+    NULL
+  );
+  /*
+  err = Pa_OpenDefaultStream(
+    &stream, 0, 2, paFloat32, SAMPLE_RATE,
+    FRAMES_PER_BUFFER, audioCallback, NULL);
+  */
   if (err != paNoError)
     goto error;
 
@@ -270,8 +291,11 @@ int main (int argc, char *argv[]) {
   pthread_t midi_read_thread;
 
   if (argc < 3) {
-    fprintf(stderr, "example usage: %s hw:2,0,0 [sin|saw|sqr|tri]\n", argv[0]);
+    fprintf(stderr, "example usage: %s hw:2,0,0 sin|saw|sqr|tri [outputDeviceId]\n", argv[0]);
     return 1;
+  }
+  if (argc == 4) {
+    outputDeviceId = atoi(argv[3]);
   }
 
   int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
