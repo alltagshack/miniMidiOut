@@ -105,9 +105,10 @@ make it executeable:
 chmod +x board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth
 ```
 
-add a line into `board/raspberrypi/config_default.txt`:
+add 2 lines into `board/raspberrypi/config_default.txt`:
 ```
 echo "dtparam=audio=on" >>board/raspberrypi/config_default.txt
+echo "dtoverlay=vc4-kms-v3d" >>board/raspberrypi/config_default.txt
 ```
 
 make a default pi1 config and start menuconfig:
