@@ -161,4 +161,13 @@ make midisynth-dirclean
 ```
 and then do a complete `make` again.
 
+## todo
 
+- bug: after a long time modeswitch via sustain not working anymore
+- config file
+  - set fade off values for single key and sustain
+- try to find out, why there is delay no delay after removements
+  of 3 velocity if-clases
+- USB hotpluging / restart after fails
+- buildroot: ram image
+- buildroot: add pi's vc4-kms-v3d.dtbo to overlay (must be open source)

@@ -80,9 +80,9 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
       if (voices[j].active > 0) {
         if (voices[j].active == 2) {
           if (sustain == 1) {
-            voices[j].volume -= 0.000003f;
+            voices[j].volume -= 0.000001f;
           } else {
-            voices[j].volume -= 0.000015f;
+            voices[j].volume -= 0.01f;
           }
           if (voices[j].volume < 0.001f) {
             voices[j].active = 0;
@@ -216,13 +216,7 @@ void *midiReadThread (void *data) {
         userData->active = 1;
         userData->phase = 0.0;
         userData->freq = freq;
-        if (vel < 70) {
-          userData->volume = 0.2f * ((float)vel / 70.0f);
-        } else if (vel < 90) {
-          userData->volume = 0.2f + 0.5f * ((float)vel - 70.0f) / 20.0f;
-        } else {
-          userData->volume = 0.7f + 0.3f * ((float)vel - 90.0f) / 37.0f;
-        }
+        userData->volume = 0.7f * ((float)vel / 127.0f);
 
         if (Pa_IsStreamStopped(stream)) {
           err = Pa_StartStream(stream);
