@@ -22,13 +22,17 @@ typedef struct {
 
 typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE } Modus;
 
+static volatile Modus mode = SAW;
+int bufferSize = 8;
+int fading = 50;
+int autoFading = 0;
+
+
 static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
 static volatile int sustain = 0;
-int bufferSize = 8;
 int outputDeviceId = -1;
 
-static volatile Modus mode = SAW;
 
 Voice voices[MAX_VOICES];
 
@@ -80,9 +84,12 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
       if (voices[j].active > 0) {
         if (voices[j].active == 2) {
           if (sustain == 1) {
-            voices[j].volume -= 0.000001f;
+            voices[j].volume -= 0.000002f;
+          } else if (sustain == 2) {
+            // on release sustain we force a fast silence
+            voices[j].volume = 0.0005f;
           } else {
-            voices[j].volume -= 0.01f;
+            voices[j].volume -= (float)fading * 0.000005f;
           }
           if (voices[j].volume < 0.001f) {
             voices[j].active = 0;
@@ -117,6 +124,8 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
         }
       }
     }
+    // after all voices are faded out, the release of sustain ends
+    if (sustain == 2) sustain = 0;
 
     *out++ = sample; // left
     *out++ = sample; // right
@@ -155,6 +164,7 @@ void *midiReadThread (void *data) {
   PaError err;
   unsigned int count    = 0;
   unsigned int start_ms = 0;
+  unsigned int now_ms = 0;
   int old_sustain = 0;
   PaStreamParameters params;
 
@@ -213,7 +223,7 @@ void *midiReadThread (void *data) {
         Voice *userData = getVoiceForNote();
 
         activeCount++;
-        userData->active = 1;
+        userData->active = (autoFading == 1)? 2 : 1;
         userData->phase = 0.0;
         userData->freq = freq;
         userData->volume = 0.7f * ((float)vel / 127.0f);
@@ -225,18 +235,24 @@ void *midiReadThread (void *data) {
         }
 
       } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
+        now_ms = now();
 
         if (vel == 0x7F) sustain = 1;
         if (vel == 0x00) sustain = 0;
 
-        printf("sustain: 0x%X\n", vel);
+        printf("sustain: 0x%X, count: %d\n", vel, count);
 
-        if (old_sustain == 1 && sustain == 0 && Pa_IsStreamStopped(stream)) {
-          if (count == 0) start_ms = now();
+        if (old_sustain == 1 && sustain == 0) {
+          // release
+          sustain = 2;
+        }
+
+        if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
+          if (count == 0) start_ms = now_ms;
           count++;
         }
 
-        if (count > 0 && ( (now() - start_ms ) > WINDOW_MS)) {
+        if (count > 0 && ( (now_ms - start_ms ) > WINDOW_MS)) {
           count = 0;
         }
 
@@ -285,17 +301,35 @@ error:
 int main (int argc, char *argv[]) {
   snd_rawmidi_t *midi_in;
   pthread_t midi_read_thread;
+  char m = '\0';
 
-  if (argc < 3) {
-    fprintf(stderr, "example usage: %s hw:2,0,0 sin|saw|sqr|tri [outputDeviceId] [bufferSize]\n", argv[0]);
+  if (argc < 2) {
+    fprintf(stderr, "example usage:\n");
+    fprintf(stderr, "\t%s hw:2,0,0 [sin|saw|sqr|tri]\n", argv[0]);
+    fprintf(stderr, "\t%s hw:2,0,0 saw [outputDeviceId]\n", argv[0]);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 8 [fade -20 to 100]\n", argv[0]);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 8 50\n", argv[0]);
     return 1;
   }
-  if (argc == 4) {
+  if (argc >= 3) {
+    m = argv[2][1];
+    switchMode(m);
+  }
+  if (argc >= 4) {
     outputDeviceId = atoi(argv[3]);
   }
-
-  if (argc == 5) {
+  if (argc >= 5) {
     bufferSize = atoi(argv[4]);
+  }
+  if (argc == 6) {
+    fading = atoi(argv[5]);
+    if (fading == 0) fading = 1;
+
+    if (fading < 0) {
+      autoFading = 1;
+      fading *= -1;
+    }
   }
 
   int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
@@ -303,8 +337,6 @@ int main (int argc, char *argv[]) {
     fprintf(stderr, "error opening device: %s\n", snd_strerror(err));
     return 1;
   }
-
-  switchMode(argv[2][1]);
 
   signal(SIGINT, handleSig);
 
