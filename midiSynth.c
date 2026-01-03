@@ -7,28 +7,49 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define SAMPLE_RATE 44100
-#define MAX_VOICES 16
+#define SAMPLE_RATE         44100
+#define MAX_VOICES          16
+#define DEFAULT_BUFFER_SIZE 8
+#define DEFAULT_FADING      10
 
-#define WINDOW_MS 1500U
-#define NEEDED    3U
+#define SUSTAIN_MODESWITCH_MS 1500U
+#define SUSTAIN_NEEDED        3U
+
+#define NOISE_BASS_BOOST_FREQ 220.0f
+#define NOISE_BASS_BOOST_VALUE 18.0f
+
+typedef struct {
+  float lowpass_alpha;
+
+  float lowpass_state;
+  float bandpass_state;
+  float highpass_state;
+
+  float bandmix;
+
+  float lowpass_weight;
+  float bandpass_weight;
+  float highpass_weight;
+
+  float low_shelf_state;
+  float low_shelf_alpha;
+  float low_shelf_gain;
+} NoiseDetail;
 
 typedef struct {
   double freq;
   float volume;
   double phase;
   int active;
-  float alpha;
-  float lastNoise;
+  NoiseDetail noise_detail;
 } Voice;
 
 typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 
 static volatile Modus mode = SAW;
-int bufferSize = 8;
-int fading = 10;
+int bufferSize = DEFAULT_BUFFER_SIZE;
+int fading = DEFAULT_FADING;
 int autoFading = 0;
-
 
 static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
@@ -104,8 +125,8 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           if (sustain == 1) {
             voices[j].volume -= 0.000002f;
           } else if (sustain == 2) {
-            // on release sustain we force a fast silence
-            voices[j].volume = 0.0005f;
+            // on release sustain we force a faster silence
+            voices[j].volume = 0.0001f;
           } else {
             voices[j].volume -= (float)fading * 0.000005f;
           }
@@ -135,8 +156,33 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
         }
         case NOISE: {
           float n = rngFloat();
-          float filtered = voices[j].lastNoise + voices[j].alpha * (n - voices[j].lastNoise);
-          voices[j].lastNoise = filtered;
+
+          voices[j].noise_detail.lowpass_state +=
+            voices[j].noise_detail.lowpass_alpha * (n - voices[j].noise_detail.lowpass_state);
+
+          voices[j].noise_detail.highpass_state =
+            n - voices[j].noise_detail.lowpass_state;
+
+          voices[j].noise_detail.bandpass_state = voices[j].noise_detail.bandmix * (
+            n + 2.0f * voices[j].noise_detail.bandpass_state - voices[j].noise_detail.highpass_state
+          );
+
+          voices[j].noise_detail.low_shelf_state += voices[j].noise_detail.low_shelf_alpha * (
+            voices[j].noise_detail.low_shelf_gain * voices[j].noise_detail.lowpass_state -
+            voices[j].noise_detail.low_shelf_state
+          );
+
+          float filtered =
+            voices[j].noise_detail.lowpass_weight * voices[j].noise_detail.lowpass_state +
+            voices[j].noise_detail.bandpass_weight * voices[j].noise_detail.bandpass_state +
+            voices[j].noise_detail.highpass_weight * voices[j].noise_detail.highpass_state + (
+              1.0f - (
+                voices[j].noise_detail.lowpass_weight +
+                voices[j].noise_detail.bandpass_weight +
+                voices[j].noise_detail.highpass_weight
+              )
+            ) * voices[j].noise_detail.low_shelf_state;
+          
           sample += voices[j].volume * filtered;
           break;
         }
@@ -199,8 +245,6 @@ void *midiReadThread (void *data) {
   unsigned int now_ms = 0;
   int old_sustain = 0;
   PaStreamParameters params;
-  float dt = 1.0f / SAMPLE_RATE;
-  float rc = 0.5f;
 
   err = Pa_Initialize();
   if (err != paNoError)
@@ -262,9 +306,27 @@ void *midiReadThread (void *data) {
         userData->freq = freq;
         userData->volume = 0.7f * ((float)vel / 127.0f);
 
-        rc = 1.0f / (2.0f * M_PI * freq);
-        userData->alpha = dt / (rc + dt);
-        userData->lastNoise = 0.0f;
+        if (mode == NOISE) {
+          float lowcut_freq = 0.5 * freq;
+          userData->noise_detail.lowpass_alpha =
+            (2.0f * M_PI * lowcut_freq / SAMPLE_RATE) /
+            (1.0f + 2.0f * M_PI * lowcut_freq / SAMPLE_RATE);
+          
+          float quality = 0.7f;
+          float c  = 1.0f / tanf(M_PI * freq / SAMPLE_RATE);
+          userData->noise_detail.bandmix = 1.0f / (1.0f + c / quality + c * c);
+          
+          userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
+          userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
+          userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
+
+          // bass boost
+          float shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
+          float shelf_bw = 2.0f * M_PI * shelf_fc / SAMPLE_RATE;
+          userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
+          float boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 800.0f);
+          userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
+        }
 
         if (Pa_IsStreamStopped(stream)) {
           err = Pa_StartStream(stream);
@@ -276,13 +338,13 @@ void *midiReadThread (void *data) {
         now_ms = now();
 
         if (vel == 0x7F) sustain = 1;
-        if (vel == 0x00) sustain = 0;
+        if (vel == 0x00) sustain = 2;
 
         printf("sustain: 0x%X, count: %d\n", vel, count);
 
-        if (old_sustain == 1 && sustain == 0) {
+        if (old_sustain == 1 && sustain == 2) {
           // release
-          sustain = 2;
+          sustain = 0;
         }
 
         if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
@@ -290,11 +352,11 @@ void *midiReadThread (void *data) {
           count++;
         }
 
-        if (count > 0 && ( (now_ms - start_ms ) > WINDOW_MS)) {
+        if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
           count = 0;
         }
 
-        if (count >= NEEDED)
+        if (count >= SUSTAIN_NEEDED)
         {
           count = 0;
           switchMode('\0');
