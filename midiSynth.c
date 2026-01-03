@@ -18,13 +18,15 @@ typedef struct {
   float volume;
   double phase;
   int active;
+  float alpha;
+  float lastNoise;
 } Voice;
 
-typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE } Modus;
+typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 
 static volatile Modus mode = SAW;
 int bufferSize = 8;
-int fading = 50;
+int fading = 10;
 int autoFading = 0;
 
 
@@ -35,6 +37,22 @@ int outputDeviceId = -1;
 
 
 Voice voices[MAX_VOICES];
+
+static uint32_t rng_state = 1;
+
+static inline void rngSeed (uint32_t seed) {
+  if (seed == 0) seed = 1;
+  rng_state = seed;
+}
+
+static inline float rngFloat (void) {
+  uint32_t x = rng_state;
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+  rng_state = x;
+  return (float)( (int32_t)x ) / (float)INT32_MAX;
+}
 
 void handleSig (int sig) { keepRunning = 0; }
 
@@ -115,12 +133,22 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           sample += voices[j].volume * tri;
           break;
         }
+        case NOISE: {
+          float n = rngFloat();
+          float filtered = voices[j].lastNoise + voices[j].alpha * (n - voices[j].lastNoise);
+          voices[j].lastNoise = filtered;
+          sample += voices[j].volume * filtered;
+          break;
+        }
         default:
           sample += voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
         }
-        voices[j].phase += voices[j].freq / SAMPLE_RATE;
-        if (voices[j].phase >= 1.0f) {
-          voices[j].phase -= 1.0f;
+
+        if (mode != NOISE) {
+          voices[j].phase += voices[j].freq / SAMPLE_RATE;
+          if (voices[j].phase >= 1.0f) {
+            voices[j].phase -= 1.0f;
+          }
         }
       }
     }
@@ -136,10 +164,11 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
 
 void switchMode (char m) {
   if (m == '\0') {
+    if (mode == SINUS) m = 'a'; // -> sAw
     if (mode == SAW) m = 'q'; // -> sQuare
     if (mode == SQUARE) m = 'r'; // -> tRiangle
-    if (mode == TRIANGLE) m = 'i'; // -> sInus
-    if (mode == SINUS) m = 'a'; // -> sAw
+    if (mode == TRIANGLE) m = 'o'; // -> nOise
+    if (mode == NOISE) m = 'i'; // -> sInus
   }
 
   if (m == 'i') {
@@ -154,6 +183,9 @@ void switchMode (char m) {
   } else if (m == 'r') {
     printf("/\\/\\ triangle\n");
     mode = TRIANGLE;
+  } else if (m == 'o') {
+    printf("XXXX noise\n");
+    mode = NOISE;
   }
 
 }
@@ -167,6 +199,8 @@ void *midiReadThread (void *data) {
   unsigned int now_ms = 0;
   int old_sustain = 0;
   PaStreamParameters params;
+  float dt = 1.0f / SAMPLE_RATE;
+  float rc = 0.5f;
 
   err = Pa_Initialize();
   if (err != paNoError)
@@ -227,6 +261,10 @@ void *midiReadThread (void *data) {
         userData->phase = 0.0;
         userData->freq = freq;
         userData->volume = 0.7f * ((float)vel / 127.0f);
+
+        rc = 1.0f / (2.0f * M_PI * freq);
+        userData->alpha = dt / (rc + dt);
+        userData->lastNoise = 0.0f;
 
         if (Pa_IsStreamStopped(stream)) {
           err = Pa_StartStream(stream);
@@ -305,11 +343,11 @@ int main (int argc, char *argv[]) {
 
   if (argc < 2) {
     fprintf(stderr, "example usage:\n");
-    fprintf(stderr, "\t%s hw:2,0,0 [sin|saw|sqr|tri]\n", argv[0]);
+    fprintf(stderr, "\t%s hw:2,0,0 [sin|saw|sqr|tri|noi]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw [outputDeviceId]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 8 [fade -20 to 100]\n", argv[0]);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 8 50\n", argv[0]);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], bufferSize);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d\n", argv[0], bufferSize, fading);
     return 1;
   }
   if (argc >= 3) {
@@ -331,6 +369,7 @@ int main (int argc, char *argv[]) {
       fading *= -1;
     }
   }
+  rngSeed((uint32_t)time(NULL));
 
   int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
   if (err < 0) {

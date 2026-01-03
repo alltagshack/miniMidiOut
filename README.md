@@ -48,6 +48,11 @@ For triangle sound effect:
 midiSynth hw:2,0,0 tri
 ```
 
+For noise sound effect:
+```
+midiSynth hw:2,0,0 noi
+```
+
 `midiSynth` uses the default audio device for output. You can
 change this e.g. `hw:1` with an optional 3rd `midiSynth hw:2,0,0 sin 1`.
 The default is used with `midiSynth hw:2,0,0 tri -1`.
@@ -58,7 +63,7 @@ is `8`. You can change this e.g. to `512` with `midiSynth hw:2,0,0 sin -1 512`.
 There is an optional 5th parameter form `-20` to `100` (fade). A negative value
 fades the sound of a key out WHILE it is pressed. With a value of `-20` this
 sound is extreme short! Values form `0` to `100` changes the fade out AFTER the
-key is released. The default is `50`.
+key is released. The default is `10`.
 
 Quit the application with `CRTL + c`.
 
@@ -66,7 +71,7 @@ Quit the application with `CRTL + c`.
 
 The *change instrument* buttons on your keyboard
 should toggle through
-the modes **sinus**, **saw**, **square** and **triangle**.
+the modes **sinus**, **saw**, **square**, **triangle** and **noise**.
 
 An alternative way to switch the mode:
 
