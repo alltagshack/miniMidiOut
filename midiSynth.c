@@ -16,7 +16,7 @@
 #define SUSTAIN_NEEDED        3U
 
 #define NOISE_BASS_BOOST_FREQ 220.0f
-#define NOISE_BASS_BOOST_VALUE 18.0f
+#define NOISE_BASS_BOOST_VALUE 8.0f
 
 typedef struct {
   float lowpass_alpha;
@@ -246,6 +246,8 @@ void *midiReadThread (void *data) {
   int old_sustain = 0;
   PaStreamParameters params;
 
+  float c, lowcut_freq, quality, shelf_fc, shelf_bw, boost_db;
+
   err = Pa_Initialize();
   if (err != paNoError)
     goto error;
@@ -307,13 +309,13 @@ void *midiReadThread (void *data) {
         userData->volume = 0.7f * ((float)vel / 127.0f);
 
         if (mode == NOISE) {
-          float lowcut_freq = 0.5 * freq;
+          lowcut_freq = 0.5f * freq;
           userData->noise_detail.lowpass_alpha =
             (2.0f * M_PI * lowcut_freq / SAMPLE_RATE) /
             (1.0f + 2.0f * M_PI * lowcut_freq / SAMPLE_RATE);
           
-          float quality = 0.7f;
-          float c  = 1.0f / tanf(M_PI * freq / SAMPLE_RATE);
+          quality = 0.7f;
+          c  = 1.0f / tanf(M_PI * freq / SAMPLE_RATE);
           userData->noise_detail.bandmix = 1.0f / (1.0f + c / quality + c * c);
           
           userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
@@ -321,10 +323,10 @@ void *midiReadThread (void *data) {
           userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
 
           // bass boost
-          float shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
-          float shelf_bw = 2.0f * M_PI * shelf_fc / SAMPLE_RATE;
+          shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
+          shelf_bw = 2.0f * M_PI * shelf_fc / SAMPLE_RATE;
           userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
-          float boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 800.0f);
+          boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
           userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
         }
 
