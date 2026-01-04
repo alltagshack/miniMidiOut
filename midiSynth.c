@@ -2,10 +2,17 @@
 #include <math.h>
 #include <portaudio.h>
 #include <pthread.h>
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+#include <linux/input.h>
+#include <sys/select.h>
+
 #include "NoiseDetail.h"
 #include "Voice.h"
 
@@ -58,6 +65,16 @@ void handleSig (int sig) { keepRunning = 0; }
 
 float midi2Freq (unsigned char *note) {
   return 440.0f * powf(2.0f, (*note - 69) / 12.0f);
+}
+
+static int openKeyboard (const char *devpath)
+{
+    int fd = open(devpath, O_RDONLY | O_NONBLOCK);
+    if (fd < 0) {
+        perror("open keyboard");
+        return -1;
+    }
+    return fd;
 }
 
 static unsigned int now (void) {
@@ -227,7 +244,7 @@ void switchMode (char m) {
 }
 
 void *midiReadThread (void *data) {
-  unsigned char buffer[3];
+  unsigned char midi_buf[3];
   PaStream *stream;
   PaError err;
   unsigned int count    = 0;
@@ -237,6 +254,15 @@ void *midiReadThread (void *data) {
   PaStreamParameters params;
 
   float c, lowcut_freq, quality, shelf_fc, shelf_bw, boost_db;
+
+  // @todo keyboard input optional and hotplug!
+
+  const char *kbd_dev = "/dev/input/event0";
+  int kbd_fd = openKeyboard(kbd_dev);
+  if (kbd_fd < 0) {
+    fprintf(stderr, "error opening (USB) keyboard: %s\n", kbd_dev);
+    return NULL;
+  }
 
   err = Pa_Initialize();
 
@@ -270,6 +296,20 @@ void *midiReadThread (void *data) {
     goto error;
 
   while (keepRunning) {
+    fd_set rfds;
+    FD_ZERO(&rfds);
+    FD_SET(kbd_fd, &rfds);
+
+    int midi_fd = snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, NULL, 0);
+    if (midi_fd >= 0) FD_SET(midi_fd, &rfds);
+
+    int maxfd = (kbd_fd > midi_fd) ? kbd_fd : midi_fd;
+    int ready = select(maxfd + 1, &rfds, NULL, NULL, NULL);
+    if (ready < 0) {
+      if (errno == EINTR) continue;
+      perror("select");
+      break;
+    }
 
     if (activeCount < 1 && Pa_IsStreamActive(stream)) {
       activeCount = 0;
@@ -278,103 +318,129 @@ void *midiReadThread (void *data) {
         goto error;
     }
 
-    ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, buffer, sizeof(buffer));
-
-    if (n > 0) {
-      unsigned char status = buffer[0];
-      unsigned char note = buffer[1];
-      unsigned char vel = buffer[2];
-
-      //printf("Debug: %x %x %x\n", status, note, vel);
-
-      if ((status & 0xF0) == 0x90 && vel > 0) {
-        float freq = midi2Freq(&note);
-        printf("%.2f Hz (%d)\n", freq, vel);
-
-        Voice *userData = getVoiceForNote();
-
-        activeCount++;
-        userData->active = (autoFading == 1)? 2 : 1;
-        userData->phase = 0.0;
-        userData->freq = freq;
-        userData->volume = 0.7f * ((float)vel / 127.0f);
-        userData->envelope = envelopeSamples;
-
-        if (mode == NOISE) {
-          lowcut_freq = 0.5f * freq;
-          userData->noise_detail.lowpass_alpha =
-            (2.0f * M_PI * lowcut_freq / SAMPLE_RATE) /
-            (1.0f + 2.0f * M_PI * lowcut_freq / SAMPLE_RATE);
-          
-          quality = 0.7f;
-          c  = 1.0f / tanf(M_PI * freq / SAMPLE_RATE);
-          userData->noise_detail.bandmix = 1.0f / (1.0f + c / quality + c * c);
-          
-          userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
-          userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
-          userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
-
-          // bass boost
-          shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
-          shelf_bw = 2.0f * M_PI * shelf_fc / SAMPLE_RATE;
-          userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
-          boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
-          userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
-        }
-
-        if (Pa_IsStreamStopped(stream)) {
-          err = Pa_StartStream(stream);
-          if (err != paNoError)
-            goto error;
-        }
-
-      } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
-        now_ms = now();
-
-        if (vel == 0x7F) sustain = 1;
-        if (vel == 0x00) sustain = 2;
-
-        if (old_sustain == 1 && sustain == 2) {
-          // release
-          sustain = 0;
-        }
-
-        if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
-          if (count == 0) start_ms = now_ms;
-          count++;
-        }
-
-        if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
-          count = 0;
-        }
-
-        printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
-          old_sustain, sustain, count, activeCount);
-
-        if (count >= SUSTAIN_NEEDED)
-        {
-          count = 0;
-          switchMode('\0');
-        }
-
-        old_sustain = sustain;
-
-      } else if ((status & 0xF0) == 0xB0 && note == 0x00) {
-
-        switchMode('\0');
-
-      } else if ((status & 0xF0) == 0x80 ||
-                 ((status & 0xF0) == 0x90 && vel == 0)) {
-        float freq = midi2Freq(&note);
-        Voice *v = findVoiceByFreq(&freq);
-        if (v) {
-          v->active = 2;
-        }
+    if (FD_ISSET(kbd_fd, &rfds))
+    {
+      struct input_event ev;
+      ssize_t n = read(kbd_fd, &ev, sizeof(ev));
+      if (n == sizeof(ev) && ev.type == EV_KEY && ev.value == 1)
+      {
+          printf("Key pressed: %u\n", ev.code);
+          if (ev.code == KEY_I) {
+              switchMode('i');
+          } else if (ev.code == KEY_A) {
+              switchMode('a');
+          } else if (ev.code == KEY_Q) {
+              switchMode('q');
+          } else if (ev.code == KEY_R) {
+              switchMode('r');
+          } else if (ev.code == KEY_O) {
+              switchMode('o');
+          }
       }
-    } else if (n == -ENODEV) {
-      break;
+    }
+
+
+    if (midi_fd >= 0 && FD_ISSET(midi_fd, &rfds))
+    {
+      ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
+
+      if (n > 0) {
+        unsigned char status = midi_buf[0];
+        unsigned char note = midi_buf[1];
+        unsigned char vel = midi_buf[2];
+
+        //printf("Debug: %x %x %x\n", status, note, vel);
+
+        if ((status & 0xF0) == 0x90 && vel > 0) {
+          float freq = midi2Freq(&note);
+          printf("%.2f Hz (%d)\n", freq, vel);
+
+          Voice *userData = getVoiceForNote();
+
+          activeCount++;
+          userData->active = (autoFading == 1)? 2 : 1;
+          userData->phase = 0.0;
+          userData->freq = freq;
+          userData->volume = 0.7f * ((float)vel / 127.0f);
+          userData->envelope = envelopeSamples;
+
+          if (mode == NOISE) {
+            lowcut_freq = 0.5f * freq;
+            userData->noise_detail.lowpass_alpha =
+              (2.0f * M_PI * lowcut_freq / SAMPLE_RATE) /
+              (1.0f + 2.0f * M_PI * lowcut_freq / SAMPLE_RATE);
+            
+            quality = 0.7f;
+            c  = 1.0f / tanf(M_PI * freq / SAMPLE_RATE);
+            userData->noise_detail.bandmix = 1.0f / (1.0f + c / quality + c * c);
+            
+            userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
+            userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
+            userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
+
+            // bass boost
+            shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
+            shelf_bw = 2.0f * M_PI * shelf_fc / SAMPLE_RATE;
+            userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
+            boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
+            userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
+          }
+
+          if (Pa_IsStreamStopped(stream)) {
+            err = Pa_StartStream(stream);
+            if (err != paNoError)
+              goto error;
+          }
+
+        } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
+          now_ms = now();
+
+          if (vel == 0x7F) sustain = 1;
+          if (vel == 0x00) sustain = 2;
+
+          if (old_sustain == 1 && sustain == 2) {
+            // release
+            sustain = 0;
+          }
+
+          if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
+            if (count == 0) start_ms = now_ms;
+            count++;
+          }
+
+          if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
+            count = 0;
+          }
+
+          printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
+            old_sustain, sustain, count, activeCount);
+
+          if (count >= SUSTAIN_NEEDED)
+          {
+            count = 0;
+            switchMode('\0');
+          }
+
+          old_sustain = sustain;
+
+        } else if ((status & 0xF0) == 0xB0 && note == 0x00) {
+
+          switchMode('\0');
+
+        } else if ((status & 0xF0) == 0x80 ||
+                  ((status & 0xF0) == 0x90 && vel == 0)) {
+          float freq = midi2Freq(&note);
+          Voice *v = findVoiceByFreq(&freq);
+          if (v) {
+            v->active = 2;
+          }
+        }
+      } else if (n == -ENODEV) {
+        break;
+      }
     }
   }
+
   printf("quitting...\n");
 
   if (Pa_IsStreamActive(stream)) {
@@ -388,22 +454,31 @@ void *midiReadThread (void *data) {
     goto error;
 
   Pa_Terminate();
+  close(kbd_fd);
   return NULL;
+
 error:
   Pa_Terminate();
+  close(kbd_fd);
   fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
   return NULL;
 }
 
-int main (int argc, char *argv[]) {
+
+int main (int argc, char *argv[])
+{
   snd_rawmidi_t *midi_in;
   pthread_t midi_read_thread;
   char m = '\0';
+  struct sigaction sa;
 
   struct timespec req = {0};
   req.tv_sec  = 0;
   req.tv_nsec = 500000000;
 
+  sa.sa_handler = handleSig;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
 
   if (argc < 2) {
     fprintf(stderr, "example usage:\n");
@@ -436,7 +511,8 @@ int main (int argc, char *argv[]) {
   }
 
   rngSeed((uint32_t)time(NULL));
-  signal(SIGINT, handleSig);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL); 
 
   while (keepRunning)
   {
