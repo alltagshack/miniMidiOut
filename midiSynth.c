@@ -239,26 +239,27 @@ void *midiReadThread (void *data) {
   float c, lowcut_freq, quality, shelf_fc, shelf_bw, boost_db;
 
   err = Pa_Initialize();
+
   if (err != paNoError)
     goto error;
 
   if (outputDeviceId >= 0) {
-	params.device = outputDeviceId;
-	params.channelCount = 2;
-	params.sampleFormat = paFloat32;
-	params.suggestedLatency = Pa_GetDeviceInfo(outputDeviceId)->defaultLowOutputLatency;
-	params.hostApiSpecificStreamInfo = NULL;
+    params.device = outputDeviceId;
+    params.channelCount = 2;
+    params.sampleFormat = paFloat32;
+    params.suggestedLatency = Pa_GetDeviceInfo(outputDeviceId)->defaultLowOutputLatency;
+    params.hostApiSpecificStreamInfo = NULL;
 
-	err = Pa_OpenStream(
-	  &stream,
-	  NULL,
-	  &params,
-	  SAMPLE_RATE,
-	  bufferSize,
-	  paClipOff,
-	  audioCallback,
-	  NULL
-	);
+    err = Pa_OpenStream(
+      &stream,
+      NULL,
+      &params,
+      SAMPLE_RATE,
+      bufferSize,
+      paClipOff,
+      audioCallback,
+      NULL
+    );
   } else {
     err = Pa_OpenDefaultStream(
       &stream, 0, 2, paFloat32, SAMPLE_RATE,
@@ -277,7 +278,7 @@ void *midiReadThread (void *data) {
         goto error;
     }
 
-    int n = snd_rawmidi_read((snd_rawmidi_t *)data, buffer, sizeof(buffer));
+    ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, buffer, sizeof(buffer));
 
     if (n > 0) {
       unsigned char status = buffer[0];
@@ -370,6 +371,8 @@ void *midiReadThread (void *data) {
           v->active = 2;
         }
       }
+    } else if (n == -ENODEV) {
+      break;
     }
   }
   printf("quitting...\n");
@@ -396,6 +399,11 @@ int main (int argc, char *argv[]) {
   snd_rawmidi_t *midi_in;
   pthread_t midi_read_thread;
   char m = '\0';
+
+  struct timespec req = {0};
+  req.tv_sec  = 0;
+  req.tv_nsec = 500000000;
+
 
   if (argc < 2) {
     fprintf(stderr, "example usage:\n");
@@ -426,20 +434,28 @@ int main (int argc, char *argv[]) {
       fading *= -1;
     }
   }
+
   rngSeed((uint32_t)time(NULL));
-
-  int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
-  if (err < 0) {
-    fprintf(stderr, "error opening device: %s\n", snd_strerror(err));
-    return 1;
-  }
-
   signal(SIGINT, handleSig);
 
-  pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
-  pthread_join(midi_read_thread, NULL);
+  while (keepRunning)
+  {
+    int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
+    if (err < 0)
+    {
+      if (nanosleep(&req, NULL) != 0) {
+        fprintf(stderr, "error during wait for opening a midi device: %s\n", snd_strerror(err));
+        return 1;
+      }
+    }
+    else
+    {
+      pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
+      pthread_join(midi_read_thread, NULL);
 
-  snd_rawmidi_close(midi_in);
+      snd_rawmidi_close(midi_in);
+    }
+  }
 
   return 0;
 }
