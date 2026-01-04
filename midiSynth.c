@@ -260,13 +260,25 @@ void *midiReadThread (void *data) {
   const char *kbd_dev = LETTER_KEYB_EVENT;
   int kbd_fd = openKeyboard(kbd_dev);
   if (kbd_fd < 0) {
-    fprintf(stderr, "error opening (USB) keyboard: %s\n", kbd_dev);
-    return NULL;
+    printf("missing a letter keyboard: %s\n", kbd_dev);
   }
 
   int midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
   struct pollfd *pfds = calloc(midi_count, sizeof(struct pollfd));
   snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
+
+  struct pollfd *all = calloc(midi_count + 1, sizeof(struct pollfd));
+
+  // copy midi pfds
+  for (int i = 0; i < midi_count; ++i) {
+    all[i] = pfds[i];
+    all[i].events = POLLIN;
+  }
+  if (kbd_fd >= 0) {
+    // keyboard as last poll element
+    all[midi_count].fd = kbd_fd;
+    all[midi_count].events = POLLIN;
+  }
 
   err = Pa_Initialize();
 
@@ -301,44 +313,30 @@ void *midiReadThread (void *data) {
 
   while (keepRunning)
   {
-    struct pollfd *all = calloc(midi_count + 1, sizeof(struct pollfd));
-
-    // copy midi pfds
-    for (int i = 0; i < midi_count; ++i) {
-      all[i] = pfds[i];
-      all[i].events = POLLIN;
-    }
-    // keyboard as last poll element
-    all[midi_count].fd = kbd_fd;
-    all[midi_count].events = POLLIN;
-
-    int ret = poll(all, midi_count + 1, -1);
-    if (ret < 0) {
-      if (errno == EINTR) {
-        free(all);
-        continue;
-      }
-      fprintf(stderr, "error poll\n");
-      free(all);
-      break;
-    }
-
     if (activeCount < 1 && Pa_IsStreamActive(stream)) {
       activeCount = 0;
       err = Pa_StopStream(stream);
       if (err != paNoError) {
-        free(all);
         goto error;
       }
     }
 
-    if (all[midi_count].revents & POLLIN)
+    int ret = poll(all, midi_count + 1, -1);
+    if (ret < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      fprintf(stderr, "error poll\n");
+      break;
+    }
+
+
+    if ((kbd_fd >= 0) && (all[midi_count].revents & POLLIN))
     {
       struct input_event ev;
       ssize_t n = read(kbd_fd, &ev, sizeof(ev));
       if (n == sizeof(ev) && ev.type == EV_KEY && ev.value == 1)
       {
-          printf("Key pressed: %u\n", ev.code);
           if (ev.code == KEY_I) {
               switchMode('i');
           } else if (ev.code == KEY_A) {
@@ -403,7 +401,6 @@ void *midiReadThread (void *data) {
             if (Pa_IsStreamStopped(stream)) {
               err = Pa_StartStream(stream);
               if (err != paNoError) {
-                free(all);
                 goto error;
               }
             }
@@ -452,15 +449,12 @@ void *midiReadThread (void *data) {
             }
           }
         } else if (n == -ENODEV) {
-          free(all);
           break;
         }
 
       } // end if it is a pollin
 
     } // end midi polls
-
-    free(all);
 
   } // end while
 
@@ -477,13 +471,15 @@ void *midiReadThread (void *data) {
     goto error;
 
   Pa_Terminate();
-  close(kbd_fd);
+  if (kbd_fd >= 0) close(kbd_fd);
+  free(all);
   free(pfds);
   return NULL;
 
 error:
   Pa_Terminate();
-  close(kbd_fd);
+  if (kbd_fd >= 0) close(kbd_fd);
+  free(all);
   free(pfds);
   fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
   return NULL;
