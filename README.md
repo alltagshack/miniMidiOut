@@ -70,6 +70,15 @@ results in tone, where the first 16000 samples are a bit louder.
 
 Quit the application with `CRTL + c`.
 
+### optional letter keyboard
+
+- press `i` for sinus
+- press `a` for saw
+- press `q` for square
+- press `r` for triangle
+- press `o` for noise
+- press `SPACE` for sustain
+
 ### MIDI device
 
 The *change instrument* buttons on your keyboard

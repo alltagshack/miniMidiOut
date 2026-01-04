@@ -1,4 +1,5 @@
 #include <alsa/asoundlib.h>
+#include <linux/input-event-codes.h>
 #include <math.h>
 #include <portaudio.h>
 #include <pthread.h>
@@ -335,18 +336,22 @@ void *midiReadThread (void *data) {
     {
       struct input_event ev;
       ssize_t n = read(kbd_fd, &ev, sizeof(ev));
-      if (n == sizeof(ev) && ev.type == EV_KEY && ev.value == 1)
+      if (n == sizeof(ev) && ev.type == EV_KEY)
       {
-          if (ev.code == KEY_I) {
+          if (ev.code == KEY_I && ev.value == 1) {
               switchMode('i');
-          } else if (ev.code == KEY_A) {
+          } else if (ev.code == KEY_A && ev.value == 1) {
               switchMode('a');
-          } else if (ev.code == KEY_Q) {
+          } else if (ev.code == KEY_Q && ev.value == 1) {
               switchMode('q');
-          } else if (ev.code == KEY_R) {
+          } else if (ev.code == KEY_R && ev.value == 1) {
               switchMode('r');
-          } else if (ev.code == KEY_O) {
+          } else if (ev.code == KEY_O && ev.value == 1) {
               switchMode('o');
+          } else if (ev.code == KEY_SPACE && ev.value == 1) {
+              sustain = 1;
+          } else if (ev.code == KEY_SPACE && ev.value == 0) {
+              sustain = 0;
           }
       }
     }
