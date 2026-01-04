@@ -6,11 +6,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include "NoiseDetail.h"
+#include "Voice.h"
 
 #define SAMPLE_RATE         44100
 #define MAX_VOICES          16
-#define DEFAULT_BUFFER_SIZE 8
+#define DEFAULT_BUFFER_SIZE 32
 #define DEFAULT_FADING      10
+#define DEFAULT_ENVELOPE    16000
 
 #define SUSTAIN_MODESWITCH_MS 1500U
 #define SUSTAIN_NEEDED        3U
@@ -18,44 +21,18 @@
 #define NOISE_BASS_BOOST_FREQ 220.0f
 #define NOISE_BASS_BOOST_VALUE 8.0f
 
-typedef struct {
-  float lowpass_alpha;
-
-  float lowpass_state;
-  float bandpass_state;
-  float highpass_state;
-
-  float bandmix;
-
-  float lowpass_weight;
-  float bandpass_weight;
-  float highpass_weight;
-
-  float low_shelf_state;
-  float low_shelf_alpha;
-  float low_shelf_gain;
-} NoiseDetail;
-
-typedef struct {
-  double freq;
-  float volume;
-  double phase;
-  int active;
-  NoiseDetail noise_detail;
-} Voice;
-
 typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 
 static volatile Modus mode = SAW;
 int bufferSize = DEFAULT_BUFFER_SIZE;
 int fading = DEFAULT_FADING;
 int autoFading = 0;
+unsigned int envelopeSamples = DEFAULT_ENVELOPE;
 
 static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
 static volatile int sustain = 0;
 int outputDeviceId = -1;
-
 
 Voice voices[MAX_VOICES];
 
@@ -118,9 +95,16 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
     return paContinue;
   }
   for (i = 0; i < framesPerBuffer; ++i) {
-    float sample = 0;
+    float sample = 0.0f;
+    float env = 1.0f;
     for (j = 0; j < MAX_VOICES; ++j) {
       if (voices[j].active > 0) {
+
+        if (voices[j].envelope != 0 && envelopeSamples != 0) {
+          env = 1.0f + 0.5f * ((float)voices[j].envelope / envelopeSamples);
+          voices[j].envelope--;
+        }
+
         if (voices[j].active == 2) {
           if (sustain == 1) {
             voices[j].volume -= 0.000002f;
@@ -136,66 +120,65 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           }
         }
         switch (mode) {
-        case SAW:
-          sample += voices[j].volume * (2.0f * voices[j].phase - 1.0f);
-          break;
-        case SQUARE:
-          if (voices[j].phase < 0.5f)
-            sample -= voices[j].volume;
-          else
-            sample += voices[j].volume;
-          break;
-        case TRIANGLE: {
-          float tri;
-          if (voices[j].phase < 0.5f)
-            tri = 4.0f * voices[j].phase - 1.0f;
-          else
-            tri = -4.0f * voices[j].phase + 3.0f;
-          sample += voices[j].volume * tri;
-          break;
-        }
-        case NOISE: {
-          float n = rngFloat();
-
-          voices[j].noise_detail.lowpass_state +=
-            voices[j].noise_detail.lowpass_alpha * (n - voices[j].noise_detail.lowpass_state);
-
-          voices[j].noise_detail.highpass_state =
-            n - voices[j].noise_detail.lowpass_state;
-
-          voices[j].noise_detail.bandpass_state = voices[j].noise_detail.bandmix * (
-            n + 2.0f * voices[j].noise_detail.bandpass_state - voices[j].noise_detail.highpass_state
-          );
-
-          voices[j].noise_detail.low_shelf_state += voices[j].noise_detail.low_shelf_alpha * (
-            voices[j].noise_detail.low_shelf_gain * voices[j].noise_detail.lowpass_state -
-            voices[j].noise_detail.low_shelf_state
-          );
-
-          float filtered =
-            voices[j].noise_detail.lowpass_weight * voices[j].noise_detail.lowpass_state +
-            voices[j].noise_detail.bandpass_weight * voices[j].noise_detail.bandpass_state +
-            voices[j].noise_detail.highpass_weight * voices[j].noise_detail.highpass_state + (
-              1.0f - (
-                voices[j].noise_detail.lowpass_weight +
-                voices[j].noise_detail.bandpass_weight +
-                voices[j].noise_detail.highpass_weight
-              )
-            ) * voices[j].noise_detail.low_shelf_state;
-          
-          sample += voices[j].volume * filtered;
-          break;
-        }
-        default:
-          sample += voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
-        }
-
-        if (mode != NOISE) {
-          voices[j].phase += voices[j].freq / SAMPLE_RATE;
-          if (voices[j].phase >= 1.0f) {
-            voices[j].phase -= 1.0f;
+          case SAW:
+            sample += env * voices[j].volume * (2.0f * voices[j].phase - 1.0f);
+            break;
+          case SQUARE:
+            if (voices[j].phase < 0.5f)
+              sample -= env * voices[j].volume;
+            else
+              sample += env * voices[j].volume;
+            break;
+          case TRIANGLE: {
+            float tri;
+            if (voices[j].phase < 0.5f)
+              tri = 4.0f * voices[j].phase - 1.0f;
+            else
+              tri = -4.0f * voices[j].phase + 3.0f;
+            sample += env * voices[j].volume * tri;
+            break;
           }
+          case NOISE: {
+            float n = rngFloat();
+
+            voices[j].noise_detail.lowpass_state +=
+              voices[j].noise_detail.lowpass_alpha * (n - voices[j].noise_detail.lowpass_state);
+
+            voices[j].noise_detail.highpass_state =
+              n - voices[j].noise_detail.lowpass_state;
+
+            voices[j].noise_detail.bandpass_state = voices[j].noise_detail.bandmix * (
+              n + 2.0f * voices[j].noise_detail.bandpass_state - voices[j].noise_detail.highpass_state
+            );
+
+            voices[j].noise_detail.low_shelf_state += voices[j].noise_detail.low_shelf_alpha * (
+              voices[j].noise_detail.low_shelf_gain * voices[j].noise_detail.lowpass_state -
+              voices[j].noise_detail.low_shelf_state
+            );
+
+            float filtered =
+              voices[j].noise_detail.lowpass_weight * voices[j].noise_detail.lowpass_state +
+              voices[j].noise_detail.bandpass_weight * voices[j].noise_detail.bandpass_state +
+              voices[j].noise_detail.highpass_weight * voices[j].noise_detail.highpass_state + (
+                1.0f - (
+                  voices[j].noise_detail.lowpass_weight +
+                  voices[j].noise_detail.bandpass_weight +
+                  voices[j].noise_detail.highpass_weight
+                )
+              ) * voices[j].noise_detail.low_shelf_state;
+            
+            sample += env * voices[j].volume * filtered;
+            break;
+          }
+          default:
+            sample += env * voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
         }
+
+        voices[j].phase += voices[j].freq / SAMPLE_RATE;
+        if (voices[j].phase >= 1.0f) {
+          voices[j].phase -= 1.0f;
+        }
+
       }
     }
     // after all voices are faded out, the release of sustain ends
@@ -307,6 +290,7 @@ void *midiReadThread (void *data) {
         userData->phase = 0.0;
         userData->freq = freq;
         userData->volume = 0.7f * ((float)vel / 127.0f);
+        userData->envelope = envelopeSamples;
 
         if (mode == NOISE) {
           lowcut_freq = 0.5f * freq;
@@ -411,7 +395,8 @@ int main (int argc, char *argv[]) {
     fprintf(stderr, "\t%s hw:2,0,0 saw [outputDeviceId]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], bufferSize);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d\n", argv[0], bufferSize, fading);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], bufferSize, fading);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d\n", argv[0], bufferSize, fading, envelopeSamples);
     return 1;
   }
   if (argc >= 3) {
