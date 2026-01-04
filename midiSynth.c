@@ -13,7 +13,9 @@
 #define MAX_VOICES          16
 #define DEFAULT_BUFFER_SIZE 32
 #define DEFAULT_FADING      10
+
 #define DEFAULT_ENVELOPE    16000
+#define ENVELOPE_MAX        0.35f
 
 #define SUSTAIN_MODESWITCH_MS 1500U
 #define SUSTAIN_NEEDED        3U
@@ -71,6 +73,8 @@ Voice *getVoiceForNote () {
     if (voices[i].active == 0)
       return &voices[i];
   }
+  // no non active voice found. we use voice 0!
+  activeCount--;
   return &voices[0];
 }
 
@@ -101,7 +105,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
       if (voices[j].active > 0) {
 
         if (voices[j].envelope != 0 && envelopeSamples != 0) {
-          env = 1.0f + 0.5f * ((float)voices[j].envelope / envelopeSamples);
+          env += ENVELOPE_MAX * ((float)voices[j].envelope / envelopeSamples);
           voices[j].envelope--;
         }
 
@@ -114,11 +118,14 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           } else {
             voices[j].volume -= (float)fading * 0.000005f;
           }
-          if (voices[j].volume < 0.001f) {
-            voices[j].active = 0;
-            activeCount--;
-          }
         }
+
+        if (voices[j].volume < 0.001f) {
+          voices[j].active = 0;
+          activeCount--;
+          continue;
+        }
+
         switch (mode) {
           case SAW:
             sample += env * voices[j].volume * (2.0f * voices[j].phase - 1.0f);
@@ -326,8 +333,6 @@ void *midiReadThread (void *data) {
         if (vel == 0x7F) sustain = 1;
         if (vel == 0x00) sustain = 2;
 
-        printf("sustain: 0x%X, count: %d\n", vel, count);
-
         if (old_sustain == 1 && sustain == 2) {
           // release
           sustain = 0;
@@ -341,6 +346,9 @@ void *midiReadThread (void *data) {
         if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
           count = 0;
         }
+
+        printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
+          old_sustain, sustain, count, activeCount);
 
         if (count >= SUSTAIN_NEEDED)
         {
