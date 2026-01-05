@@ -1,7 +1,6 @@
 # midiSynth
 
-A fast midi input to audio output synthesizer with a delay of
-70 - 120ms on Pi1.
+A fast midi input to audio output synthesizer with 5 popular waveforms.
 
 ## build
 
@@ -28,27 +27,27 @@ Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (
 
 ### CLI
 
-For sinus wave:
+For sinus wave similar to a bell or flute:
 ```
 midiSynth hw:2,0,0 sin
 ```
 
-For saw sound effect:
+For saw sound effect. It is the synth-sound from the 80th and similar to a spinet:
 ```
 midiSynth hw:2,0,0 saw
 ```
 
-For square sound effect:
+For square sound effect similar to 8bit arcade game from the 80th:
 ```
 midiSynth hw:2,0,0 sqr
 ```
 
-For triangle sound effect:
+For triangle sound effect similar to a cheap electric doorbell or gong:
 ```
 midiSynth hw:2,0,0 tri
 ```
 
-For noise sound effect:
+For noise sound effect similar to wind, ocean waves or percussion:
 ```
 midiSynth hw:2,0,0 noi
 ```
@@ -72,12 +71,12 @@ Quit the application with `CRTL + c`.
 
 ### optional letter keyboard
 
-- press `i` for sinus
-- press `a` for saw
-- press `q` for square
-- press `r` for triangle
-- press `o` for noise
-- press `SPACE` for sustain
+- press `1` for sinus
+- press `2` for saw
+- press `3` for square
+- press `4` for triangle
+- press `5` for noise
+- press on Keypad `+` or `SPACE` for sustain
 
 ### MIDI device
 
@@ -185,7 +184,7 @@ and then do a complete `make` again.
 
 ## todo
 
-- since POLL: hotplug not work anymore after first detection
 - buildroot: add usermod -aG input USERNAME
 - buildroot: ram image
 - buildroot: add pi's vc4-kms-v3d.dtbo to overlay (must be open source)
+- buildroot: 386er eeepc image?

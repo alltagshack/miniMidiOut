@@ -338,19 +338,19 @@ void *midiReadThread (void *data) {
       ssize_t n = read(kbd_fd, &ev, sizeof(ev));
       if (n == sizeof(ev) && ev.type == EV_KEY)
       {
-          if (ev.code == KEY_I && ev.value == 1) {
+          if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {
               switchMode('i');
-          } else if (ev.code == KEY_A && ev.value == 1) {
+          } else if ((ev.code == KEY_KP2 || ev.code == KEY_2) && ev.value == 1) {
               switchMode('a');
-          } else if (ev.code == KEY_Q && ev.value == 1) {
+          } else if ((ev.code == KEY_KP3 || ev.code == KEY_3) && ev.value == 1) {
               switchMode('q');
-          } else if (ev.code == KEY_R && ev.value == 1) {
+          } else if ((ev.code == KEY_KP4 || ev.code == KEY_4) && ev.value == 1) {
               switchMode('r');
-          } else if (ev.code == KEY_O && ev.value == 1) {
+          } else if ((ev.code == KEY_KP5 || ev.code == KEY_5) && ev.value == 1) {
               switchMode('o');
-          } else if (ev.code == KEY_SPACE && ev.value == 1) {
+          } else if ((ev.code == KEY_KPPLUS || ev.code == KEY_SPACE) && ev.value == 1) {
               sustain = 1;
-          } else if (ev.code == KEY_SPACE && ev.value == 0) {
+          } else if ((ev.code == KEY_KPPLUS || ev.code == KEY_SPACE) && ev.value == 0) {
               sustain = 0;
           }
       }
@@ -454,10 +454,11 @@ void *midiReadThread (void *data) {
             }
           }
         } else if (n == -ENODEV) {
-          break;
+          goto out;
         }
-
-      } // end if it is a pollin
+      } else if (all[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        goto out;
+      }
 
     } // end midi polls
 
@@ -465,6 +466,7 @@ void *midiReadThread (void *data) {
 
   printf("quitting...\n");
 
+out:
   if (Pa_IsStreamActive(stream)) {
     err = Pa_StopStream(stream);
     if (err != paNoError)
