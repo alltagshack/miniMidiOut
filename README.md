@@ -31,7 +31,7 @@ Add YOURSELF to the input group. The code uses as letter keyboard, if it exists.
 sudo add usermod -aG input YOURSELF
 ```
 
-After logout and relogin YOURSELF you and `midiSynth` has
+After logout and relogin YOURSELF you and `midiSynth` have the right to access keypad events (`/dev/input/event0`).
 
 ### CLI
 
@@ -59,6 +59,8 @@ For noise sound effect similar to wind, ocean waves or percussion:
 ```
 midiSynth hw:2,0,0 noi
 ```
+
+After starting `midiSynth` with success, it plays 3 tones as startup theme.
 
 `midiSynth` uses the default audio device for output. You can
 change this e.g. `hw:1` with an optional 3rd `midiSynth hw:2,0,0 sin 1`.

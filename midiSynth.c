@@ -71,6 +71,17 @@ static inline float rngFloat (void) {
 
 void handleSig (int sig) { keepRunning = 0; }
 
+int waiting (unsigned int ms)
+{
+  struct timespec req = {0};
+  req.tv_sec  = 0;
+  req.tv_nsec = ms * 1000000;
+  if (nanosleep(&req, NULL) != 0) {
+    return 1;
+  }
+  return 0;
+}
+
 float midi2Freq (unsigned char *note) {
   return concertPitch * powf(2.0f, (*note - 69) / 12.0f);
 }
@@ -250,19 +261,129 @@ void switchMode (char m) {
   }
 }
 
-void *midiReadThread (void *data) {
+PaError play (PaStream *stream, unsigned char status, unsigned char note, unsigned char vel)
+{
+  static unsigned int count    = 0;
+  static unsigned int start_ms = 0;
+  static unsigned int now_ms = 0;
+  static int old_sustain = 0;
+
+  if ((status & 0xF0) == 0x90 && vel > 0) {
+    float freq = midi2Freq(&note);
+    printf("%.2f Hz (%d)\n", freq, vel);
+
+    Voice *userData = getVoiceForNote();
+
+    activeCount++;
+    userData->active = (autoFading == 1)? 2 : 1;
+    userData->phase = 0.0;
+    userData->freq = freq;
+    userData->volume = 0.7f * ((float)vel / 127.0f);
+    userData->envelope = envelopeSamples;
+
+    if (mode == NOISE)
+    {
+      float lowcut_freq = 0.5f * freq;
+      userData->noise_detail.lowpass_alpha =
+        (2.0f * M_PI * lowcut_freq / sampleRate) /
+        (1.0f + 2.0f * M_PI * lowcut_freq / sampleRate);
+      
+      float c  = 1.0f / tanf(M_PI * freq / sampleRate);
+      userData->noise_detail.bandmix = 1.0f / (1.0f + c / 0.7f + c * c);
+      
+      userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
+      userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
+      userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
+
+      // bass boost
+      float shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
+      float shelf_bw = 2.0f * M_PI * shelf_fc / sampleRate;
+      userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
+      float boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
+      userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
+    }
+
+    if (Pa_IsStreamStopped(stream)) {
+      PaError err = Pa_StartStream(stream);
+      if (err != paNoError) return err;
+    }
+
+  } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
+    now_ms = now();
+
+    if (vel == 0x7F) sustain = 1;
+    if (vel == 0x00) sustain = 2;
+
+    if (old_sustain == 1 && sustain == 2) {
+      // release sustain
+      sustain = 0;
+    }
+
+    if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
+      if (count == 0) start_ms = now_ms;
+      count++;
+    }
+
+    if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
+      count = 0;
+    }
+
+    printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
+      old_sustain, sustain, count, activeCount);
+
+    if (count >= SUSTAIN_NEEDED)
+    {
+      count = 0;
+      switchMode('\0');
+    }
+
+    old_sustain = sustain;
+
+  } else if ((status & 0xF0) == 0x80 ||
+            ((status & 0xF0) == 0x90 && vel == 0)) {
+
+    // release a tone
+
+    float freq = midi2Freq(&note);
+    Voice *v = findVoiceByFreq(&freq);
+    if (v) {
+      v->active = 2;
+    }
+  }
+
+  return paNoError;
+}
+
+PaError playStartupTheme (PaStream *stream)
+{
+  PaError err = paNoError;
+
+  err = play (stream, 0x90, 0x30, 0x42);
+  if (err != paNoError) return err;
+  waiting(500);
+  err = play (stream, 0x90, 0x32, 0x42);
+  if (err != paNoError) return err;
+  waiting(500);
+  err = play (stream, 0x90, 0x34, 0x42);
+  if (err != paNoError) return err;
+  waiting(500);
+
+  err = play (stream, 0x90, 0x30, 0x0);
+  if (err != paNoError) return err;
+  err = play (stream, 0x90, 0x32, 0x0);
+  if (err != paNoError) return err;
+  err = play (stream, 0x90, 0x34, 0x0);
+
+  return err;
+}
+
+void *midiReadThread (void *data)
+{
   unsigned char midi_buf[3];
   PaStream *stream;
   PaError err;
-  unsigned int count    = 0;
-  unsigned int start_ms = 0;
-  unsigned int now_ms = 0;
-  int old_sustain = 0;
+
   PaStreamParameters params;
-
-  float c, lowcut_freq, quality, shelf_fc, shelf_bw, boost_db;
-
-  // @todo keyboard input optional and hotplug!
 
   const char *kbd_dev = LETTER_KEYB_EVENT;
   int kbd_fd = openKeyboard(kbd_dev);
@@ -317,6 +438,11 @@ void *midiReadThread (void *data) {
   }
   if (err != paNoError)
     goto error;
+
+  err = playStartupTheme(stream);
+  if (err != paNoError)
+    goto error;
+  
 
   while (keepRunning)
   {
@@ -383,97 +509,12 @@ void *midiReadThread (void *data) {
         ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
 
         if (n > 0) {
-          unsigned char status = midi_buf[0];
-          unsigned char note = midi_buf[1];
-          unsigned char vel = midi_buf[2];
 
-          //printf("Debug: %x %x %x\n", status, note, vel);
+          err = play(stream, midi_buf[0], midi_buf[1], midi_buf[2]);
+          if (err) goto error;
 
-          if ((status & 0xF0) == 0x90 && vel > 0) {
-            float freq = midi2Freq(&note);
-            printf("%.2f Hz (%d)\n", freq, vel);
-
-            Voice *userData = getVoiceForNote();
-
-            activeCount++;
-            userData->active = (autoFading == 1)? 2 : 1;
-            userData->phase = 0.0;
-            userData->freq = freq;
-            userData->volume = 0.7f * ((float)vel / 127.0f);
-            userData->envelope = envelopeSamples;
-
-            if (mode == NOISE) {
-              lowcut_freq = 0.5f * freq;
-              userData->noise_detail.lowpass_alpha =
-                (2.0f * M_PI * lowcut_freq / sampleRate) /
-                (1.0f + 2.0f * M_PI * lowcut_freq / sampleRate);
-              
-              quality = 0.7f;
-              c  = 1.0f / tanf(M_PI * freq / sampleRate);
-              userData->noise_detail.bandmix = 1.0f / (1.0f + c / quality + c * c);
-              
-              userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
-              userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
-              userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
-
-              // bass boost
-              shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
-              shelf_bw = 2.0f * M_PI * shelf_fc / sampleRate;
-              userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
-              boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
-              userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
-            }
-
-            if (Pa_IsStreamStopped(stream)) {
-              err = Pa_StartStream(stream);
-              if (err != paNoError) {
-                goto error;
-              }
-            }
-
-          } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
-            now_ms = now();
-
-            if (vel == 0x7F) sustain = 1;
-            if (vel == 0x00) sustain = 2;
-
-            if (old_sustain == 1 && sustain == 2) {
-              // release sustain
-              sustain = 0;
-            }
-
-            if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
-              if (count == 0) start_ms = now_ms;
-              count++;
-            }
-
-            if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
-              count = 0;
-            }
-
-            printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
-              old_sustain, sustain, count, activeCount);
-
-            if (count >= SUSTAIN_NEEDED)
-            {
-              count = 0;
-              switchMode('\0');
-            }
-
-            old_sustain = sustain;
-
-          } else if ((status & 0xF0) == 0x80 ||
-                    ((status & 0xF0) == 0x90 && vel == 0)) {
-
-            // release a tone
-
-            float freq = midi2Freq(&note);
-            Voice *v = findVoiceByFreq(&freq);
-            if (v) {
-              v->active = 2;
-            }
-          }
         } else if (n == -ENODEV) {
+
           goto out;
         }
       } else if (all[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
@@ -519,10 +560,6 @@ int main (int argc, char *argv[])
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
-
-  struct timespec req = {0};
-  req.tv_sec  = 0;
-  req.tv_nsec = 500000000;
 
   sa.sa_handler = handleSig;
   sigemptyset(&sa.sa_mask);
@@ -572,7 +609,7 @@ int main (int argc, char *argv[])
     int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
     if (err < 0)
     {
-      if (nanosleep(&req, NULL) != 0) {
+      if (waiting(500) != 0) {
         fprintf(stderr, "error during wait for opening a midi device: %s\n", snd_strerror(err));
         return 1;
       }
