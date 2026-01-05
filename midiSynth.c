@@ -139,10 +139,10 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           }
         }
 
-        if (voices[j].volume < 0.001f) {
+        if ((i == 0) && (voices[j].volume < 0.001f)) {
+          voices[j].volume = 0.0f;
           voices[j].active = 0;
           activeCount--;
-          continue;
         }
 
         switch (mode) {
