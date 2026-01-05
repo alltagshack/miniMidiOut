@@ -499,8 +499,13 @@ void *midiReadThread (void *data)
             sustain = 1;
           } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 0) {
             sustain = 0;
+
+          } else if (ev.code == KEY_ESC && ev.value == 1) {
+            keepRunning = 0;
+            break;
           }
-      }
+
+        }
     }
 
     for (int i = 0; i < midi_count; ++i) {

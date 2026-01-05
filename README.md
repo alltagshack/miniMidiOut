@@ -81,7 +81,7 @@ results in tone, where the first 16000 samples are a bit louder.
 You can set the samplerate with a 7th optional parameter. The default value is `44100`.
 Some values may not work on your sound system an it will fall back to its own defaults.
 
-Quit the application with `CRTL + c`.
+Quit the application with `CRTL + c` or `ESC`.
 
 ### Features via Numpad
 
@@ -111,7 +111,20 @@ Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **
 - no sound should be played
 - you press the sustain pedal 3 times in 1.5 seconds
 
-## buildroot mods
+## todo (primary buildroot)
+
+- ram image
+- pi1
+  - there is a issue with hotplug the midi keyboard
+  - add pi's vc4-kms-v3d.dtbo to overlay (must be open source)
+  - create additional linux config file (driver for snd-bcm2835 and midi missing)
+- eeepc
+  - better description for eeepc and configs
+  - an init.d script
+  - unmute sound device after boot
+  - handle issue with keypad, ctrl+c and ESC (does not work)
+
+# buildroot mods
 
 copy `pkg/` to buildroot packages:
 ```
@@ -182,7 +195,8 @@ Select/set this:
 - Kernel
   - build devicetree with overlay support
 
-save as `.config` and than do:
+save as `.config`. Maybe you have to select `Device Drivers: Sound card support`
+in the kernel via `make linux-menuconfig` and then do:
 ```
 make
 ```
@@ -192,7 +206,7 @@ write image to sd-card on e.g. `/dev/mmcblk0`:
 sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
 ```
 
-### hint
+## hint
 
 if code changed:
 ```
@@ -203,13 +217,6 @@ or
 make midisynth-dirclean
 ```
 and then do a complete `make` again.
-
-## todo
-
-- there is a issue with hotplug the midi keyboard on pi1 and buildroot
-- buildroot: ram image
-- buildroot: add pi's vc4-kms-v3d.dtbo to overlay (must be open source)
-- buildroot: 386er eeepc image?
 
 ## notes eeepc
 
