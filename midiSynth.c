@@ -490,14 +490,14 @@ void *midiReadThread (void *data)
           } else if ((ev.code == KEY_KP9 || ev.code == KEY_9) && ev.value == 1) {
             autoFading = autoFading == 1? 0 : 1;
 
-          } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1) {
+          } else if ((ev.code == KEY_KPMINUS || ev.code == KEY_MINUS) && ev.value == 1) {
             concertPitch /= 2.0f;
           } else if ((ev.code == KEY_KPDOT || ev.code == KEY_DOT) && ev.value == 1) {
             concertPitch *= 2.0f;
 
-          } else if ((ev.code == KEY_KPENTER || ev.code == KEY_ENTER) && ev.value == 1) {
+          } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1) {
             sustain = 1;
-          } else if ((ev.code == KEY_KPENTER || ev.code == KEY_ENTER) && ev.value == 0) {
+          } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 0) {
             sustain = 0;
           }
       }

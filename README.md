@@ -90,7 +90,7 @@ Quit the application with `CRTL + c`.
 - press `3` for square
 - press `4` for triangle
 - press `5` for noise
-- press `ENTER` for sustain
+- press `0` for sustain
 
 Change fading out the tone (release):
 
@@ -101,7 +101,7 @@ Change fading out the tone (release):
 
 Change octave:
 
-- press `0` to set down
+- press `-` to set down
 - press `.` to set up
 
 ### MIDI device
