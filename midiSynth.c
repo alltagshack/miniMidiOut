@@ -16,11 +16,12 @@
 #include "NoiseDetail.h"
 #include "Voice.h"
 
-#define SAMPLE_RATE            44100
+// 48000 44100 16000 11025
+#define DEFAULT_RATE           44100
 #define MAX_VOICES             16
-#define DEFAULT_BUFFER_SIZE    32
+#define DEFAULT_BUFFER_SIZE    16
 
-#define FADING1                3
+#define FADING1                2
 #define DEFAULT_FADING         10
 #define FADING2                60
 
@@ -40,6 +41,7 @@ typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 static volatile Modus mode = SAW;
 int bufferSize = DEFAULT_BUFFER_SIZE;
 int fading = DEFAULT_FADING;
+int sampleRate = DEFAULT_RATE;
 int autoFading = 0;
 unsigned int envelopeSamples = DEFAULT_ENVELOPE;
 
@@ -47,6 +49,7 @@ static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
 static volatile int sustain = 0;
 int outputDeviceId = -1;
+static volatile float concertPitch = 440.0f;
 
 Voice voices[MAX_VOICES];
 
@@ -69,7 +72,7 @@ static inline float rngFloat (void) {
 void handleSig (int sig) { keepRunning = 0; }
 
 float midi2Freq (unsigned char *note) {
-  return 440.0f * powf(2.0f, (*note - 69) / 12.0f);
+  return concertPitch * powf(2.0f, (*note - 69) / 12.0f);
 }
 
 static int openKeyboard (const char *devpath)
@@ -203,7 +206,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
             sample += env * voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
         }
 
-        voices[j].phase += voices[j].freq / SAMPLE_RATE;
+        voices[j].phase += voices[j].freq / sampleRate;
         if (voices[j].phase >= 1.0f) {
           voices[j].phase -= 1.0f;
         }
@@ -300,7 +303,7 @@ void *midiReadThread (void *data) {
       &stream,
       NULL,
       &params,
-      SAMPLE_RATE,
+      sampleRate,
       bufferSize,
       paClipOff,
       audioCallback,
@@ -308,7 +311,7 @@ void *midiReadThread (void *data) {
     );
   } else {
     err = Pa_OpenDefaultStream(
-      &stream, 0, 2, paFloat32, SAMPLE_RATE,
+      &stream, 0, 2, paFloat32, sampleRate,
       bufferSize, audioCallback, NULL
     );
   }
@@ -361,6 +364,11 @@ void *midiReadThread (void *data) {
           } else if ((ev.code == KEY_KP9 || ev.code == KEY_9) && ev.value == 1) {
             autoFading = autoFading == 1? 0 : 1;
 
+          } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1) {
+            concertPitch /= 2.0f;
+          } else if ((ev.code == KEY_KPDOT || ev.code == KEY_DOT) && ev.value == 1) {
+            concertPitch *= 2.0f;
+
           } else if ((ev.code == KEY_KPENTER || ev.code == KEY_ENTER) && ev.value == 1) {
             sustain = 1;
           } else if ((ev.code == KEY_KPENTER || ev.code == KEY_ENTER) && ev.value == 0) {
@@ -397,11 +405,11 @@ void *midiReadThread (void *data) {
             if (mode == NOISE) {
               lowcut_freq = 0.5f * freq;
               userData->noise_detail.lowpass_alpha =
-                (2.0f * M_PI * lowcut_freq / SAMPLE_RATE) /
-                (1.0f + 2.0f * M_PI * lowcut_freq / SAMPLE_RATE);
+                (2.0f * M_PI * lowcut_freq / sampleRate) /
+                (1.0f + 2.0f * M_PI * lowcut_freq / sampleRate);
               
               quality = 0.7f;
-              c  = 1.0f / tanf(M_PI * freq / SAMPLE_RATE);
+              c  = 1.0f / tanf(M_PI * freq / sampleRate);
               userData->noise_detail.bandmix = 1.0f / (1.0f + c / quality + c * c);
               
               userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
@@ -410,7 +418,7 @@ void *midiReadThread (void *data) {
 
               // bass boost
               shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
-              shelf_bw = 2.0f * M_PI * shelf_fc / SAMPLE_RATE;
+              shelf_bw = 2.0f * M_PI * shelf_fc / sampleRate;
               userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
               boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
               userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
@@ -527,7 +535,8 @@ int main (int argc, char *argv[])
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], bufferSize);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], bufferSize, fading);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d\n", argv[0], bufferSize, fading, envelopeSamples);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [sampleRate]\n", argv[0], bufferSize, fading, envelopeSamples);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %d\n", argv[0], bufferSize, fading, envelopeSamples, sampleRate);
     return 1;
   }
   if (argc >= 3) {
@@ -540,7 +549,7 @@ int main (int argc, char *argv[])
   if (argc >= 5) {
     bufferSize = atoi(argv[4]);
   }
-  if (argc == 6) {
+  if (argc >= 6) {
     fading = atoi(argv[5]);
     if (fading == 0) fading = 1;
 
@@ -549,6 +558,10 @@ int main (int argc, char *argv[])
       fading *= -1;
     }
   }
+  if (argc == 7) {
+    sampleRate = atoi(argv[6]);
+  }
+
 
   rngSeed((uint32_t)time(NULL));
   sigaction(SIGINT, &sa, NULL);

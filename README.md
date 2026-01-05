@@ -25,6 +25,14 @@ cmake --build .
 
 Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
 
+Add YOURSELF to the input group. The code uses as letter keyboard, if it exists.
+
+```
+sudo add usermod -aG input YOURSELF
+```
+
+After logout and relogin YOURSELF you and `midiSynth` has
+
 ### CLI
 
 For sinus wave similar to a bell or flute:
@@ -57,7 +65,8 @@ change this e.g. `hw:1` with an optional 3rd `midiSynth hw:2,0,0 sin 1`.
 The default is used with `midiSynth hw:2,0,0 tri -1`.
 
 `midiSynth` has an optional 4th parameter for the buffer size. The default
-is `32`. You can change this e.g. to `512` with `midiSynth hw:2,0,0 sin -1 512`.
+is `16` and works well on Pi1. You can change the buffer e.g. to `512`
+with `midiSynth hw:2,0,0 sin -1 512` if you want.
 
 There is an optional 5th parameter form `-20` to `100` (fade). A negative value
 fades the sound of a key out WHILE it is pressed. With a value of `-20` this
@@ -67,9 +76,12 @@ key is released. The default is `10`.
 You can set the envelope with a 6th optional parameter. The default value is `16000` and
 results in tone, where the first 16000 samples are a bit louder.
 
+You can set the samplerate with a 7th optional parameter. The default value is `44100`.
+Some values may not work on your sound system an it will fall back to its own defaults.
+
 Quit the application with `CRTL + c`.
 
-### optional letter keyboard
+### Features via Numpad
 
 - press `1` for sinus
 - press `2` for saw
@@ -84,6 +96,11 @@ Change fading out the tone (release):
 - press `7` for a long fade out
 - press `8` for no fade out
 - press `9` toggles automatic fade out on/off
+
+Change octave:
+
+- press `0` to set down
+- press `.` to set up
 
 ### MIDI device
 
@@ -187,7 +204,7 @@ and then do a complete `make` again.
 
 ## todo
 
-- buildroot: add usermod -aG input USERNAME
+- there is a issue with hotplug the midi keyboard on pi1 and buildroot
 - buildroot: ram image
 - buildroot: add pi's vc4-kms-v3d.dtbo to overlay (must be open source)
 - buildroot: 386er eeepc image?
