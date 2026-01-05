@@ -210,3 +210,89 @@ and then do a complete `make` again.
 - buildroot: ram image
 - buildroot: add pi's vc4-kms-v3d.dtbo to overlay (must be open source)
 - buildroot: 386er eeepc image?
+
+## notes eeepc
+
+Dass der Kernel bootet, ist ein großer Erfolg! Dass der Sound nicht funktioniert,
+liegt bei alten EeePCs (meist mit Intel High Definition Audio oder Realtek ALC 
+Chipsätzen) fast immer daran, dass entweder die Treiber nicht im Kernel aktiviert
+sind oder die benötigte Firmware/Alsa-Tools im Rootfs fehlen.
+Hier ist die Checkliste, um den Sound auf dem EeePC zum Laufen zu bringen:
+
+### Kernel-Konfiguration (Treiber)
+
+Du musst sicherstellen, dass der passende Sound-Treiber fest im Kernel eingebaut ist (oder als Modul geladen wird).
+
+Führe `make linux-menuconfig` aus.
+
+Navigiere zu: `Device Drivers: Sound card support`.
+
+Aktiviere Advanced Linux Sound Architecture (ALSA).
+
+Gehe in den Unterpunkt PCI sound devices.
+
+Aktiviere Intel HD Audio (CONFIG_SND_HDA_INTEL). Dies ist der Standard-Treiber
+für fast alle EeePC-Modelle (701, 900, 1000).
+
+Device Drivers: Sound card support: Advanced Linux Sound Architecture:
+
+- <*> HD Audio PCI
+- [*] Build hwdep interface for HD-audio driver
+- <*> Build Realtek HD-audio codec support
+
+Device Drivers: Sound card support: Advanced Linux Sound Architecture: USB sound devices:
+
+- <*> USB Audio/MIDI driver
+- [*] MIDI 2.0 support by USB Audio driver
+
+Achte darauf, dass auch die Codecs aktiviert sind (meist Realtek oder Generic).
+
+Speichere und verlasse das Menü.
+
+### Buildroot-Pakete (Software)
+
+Ohne die passenden Bibliotheken und Tools kann Linux den Soundchip
+nicht ansprechen.
+
+Führe `make menuconfig` aus.
+
+Gehe zu `Target packages -> Audio and video applications`.
+Aktiviere `alsa-utils`. Das gibt dir das Tool `amixer` und `alsamixer`.
+(Optional) Aktiviere `alsa-plugins`, falls du komplexere Audio-Ausgaben planst.
+
+### Sound aktivieren (Stummschaltung aufheben)
+
+Unter Linux ist der Sound nach dem Booten standardmäßig oft gemuted (stummgeschaltet).
+Nachdem du dein neues System gebootet hast, versuche Folgendes auf der Konsole:
+
+```
+aplay -l
+# Alle Kanäle entstummen und Lautstärke auf 100% setzen
+amixer sset Master unmute
+amixer sset Master 100%
+amixer sset Speaker unmute
+```
+
+### Firmware (Wichtig für spätere Modelle)
+
+Manche EeePC-Modelle benötigen spezielle Firmware-Dateien für den Soundchip.
+Gehe in make menuconfig zu Target packages -> Hardware handling -> Firmware.
+Prüfe, ob dort Pakete wie alsa-firmware verfügbar sind
+(oft für die i386-EeePCs nicht nötig, aber ein guter Check).
+
+### Fehlersuche auf dem EeePC
+
+Wenn du auf dem laufenden System bist, prüfe mit diesem Befehl, ob
+der Treiber geladen wurde:
+
+```
+lsmod | grep snd
+ls /dev/snd
+dmesg | grep -i audio
+```
+Wenn die Liste leer ist, wurde der Treiber nicht geladen
+(oder nicht fest in den Kernel eingebaut). Wenn `dmesg | grep -i audio` Fehlermeldungen
+zeigt, fehlt wahrscheinlich die Firmware.
+Tipp: Da du `isolinux` nutzt, stelle sicher, dass du nach den
+Kernel-Änderungen `make linux-update-savedefconfig` und `make` das
+neue `bzImage` auf deine SD-Karte kopierst!
