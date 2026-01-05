@@ -19,7 +19,10 @@
 #define SAMPLE_RATE            44100
 #define MAX_VOICES             16
 #define DEFAULT_BUFFER_SIZE    32
+
+#define FADING1                3
 #define DEFAULT_FADING         10
+#define FADING2                60
 
 #define DEFAULT_ENVELOPE       16000
 #define ENVELOPE_MAX           0.35f
@@ -339,19 +342,29 @@ void *midiReadThread (void *data) {
       if (n == sizeof(ev) && ev.type == EV_KEY)
       {
           if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {
-              switchMode('i');
+            switchMode('i');
           } else if ((ev.code == KEY_KP2 || ev.code == KEY_2) && ev.value == 1) {
-              switchMode('a');
+            switchMode('a');
           } else if ((ev.code == KEY_KP3 || ev.code == KEY_3) && ev.value == 1) {
-              switchMode('q');
+            switchMode('q');
           } else if ((ev.code == KEY_KP4 || ev.code == KEY_4) && ev.value == 1) {
-              switchMode('r');
+            switchMode('r');
           } else if ((ev.code == KEY_KP5 || ev.code == KEY_5) && ev.value == 1) {
-              switchMode('o');
-          } else if ((ev.code == KEY_KPPLUS || ev.code == KEY_SPACE) && ev.value == 1) {
-              sustain = 1;
-          } else if ((ev.code == KEY_KPPLUS || ev.code == KEY_SPACE) && ev.value == 0) {
-              sustain = 0;
+            switchMode('o');
+
+          } else if ((ev.code == KEY_KP6 || ev.code == KEY_6) && ev.value == 1) {
+            fading = DEFAULT_FADING;
+          } else if ((ev.code == KEY_KP7 || ev.code == KEY_7) && ev.value == 1) {
+            fading = FADING1;
+          } else if ((ev.code == KEY_KP8 || ev.code == KEY_8) && ev.value == 1) {
+            fading = FADING2;
+          } else if ((ev.code == KEY_KP9 || ev.code == KEY_9) && ev.value == 1) {
+            autoFading = autoFading == 1? 0 : 1;
+
+          } else if ((ev.code == KEY_KPENTER || ev.code == KEY_ENTER) && ev.value == 1) {
+            sustain = 1;
+          } else if ((ev.code == KEY_KPENTER || ev.code == KEY_ENTER) && ev.value == 0) {
+            sustain = 0;
           }
       }
     }
@@ -417,7 +430,7 @@ void *midiReadThread (void *data) {
             if (vel == 0x00) sustain = 2;
 
             if (old_sustain == 1 && sustain == 2) {
-              // release
+              // release sustain
               sustain = 0;
             }
 
@@ -441,12 +454,11 @@ void *midiReadThread (void *data) {
 
             old_sustain = sustain;
 
-          } else if ((status & 0xF0) == 0xB0 && note == 0x00) {
-
-            switchMode('\0');
-
           } else if ((status & 0xF0) == 0x80 ||
                     ((status & 0xF0) == 0x90 && vel == 0)) {
+
+            // release a tone
+
             float freq = midi2Freq(&note);
             Voice *v = findVoiceByFreq(&freq);
             if (v) {

@@ -76,15 +76,18 @@ Quit the application with `CRTL + c`.
 - press `3` for square
 - press `4` for triangle
 - press `5` for noise
-- press on Keypad `+` or `SPACE` for sustain
+- press `ENTER` for sustain
+
+Change fading out the tone (release):
+
+- press `6` for default
+- press `7` for a long fade out
+- press `8` for no fade out
+- press `9` toggles automatic fade out on/off
 
 ### MIDI device
 
-The *change instrument* buttons on your keyboard
-should toggle through
-the modes **sinus**, **saw**, **square**, **triangle** and **noise**.
-
-An alternative way to switch the mode:
+Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **noise**:
 
 - no sound should be played
 - you press the sustain pedal 3 times in 1.5 seconds
