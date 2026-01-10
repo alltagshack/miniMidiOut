@@ -78,7 +78,10 @@ key is released. The default is `10`.
 You can set the envelope with a 6th optional parameter. The default value is `16000` and
 results in tone, where the first 16000 samples are a bit louder.
 
-You can set the samplerate with a 7th optional parameter. The default value is `44100`.
+An optional 7th parameter is `/dev/input/event0` as default. It is used to set the event
+device, which detects a pressed key on the Numpad.
+
+You can set the samplerate with a 8th optional parameter. The default value is `44100`.
 Some values may not work on your sound system an it will fall back to its own defaults.
 
 Quit the application with `CRTL + c` or `ESC`.

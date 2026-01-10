@@ -34,7 +34,7 @@
 #define NOISE_BASS_BOOST_FREQ  220.0f
 #define NOISE_BASS_BOOST_VALUE 8.0f
 
-#define LETTER_KEYB_EVENT      "/dev/input/event0"
+#define DEFAULT_KEYB_EVENT     "/dev/input/event0"
 
 typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 
@@ -50,6 +50,7 @@ static volatile int activeCount = 0;
 static volatile int sustain = 0;
 int outputDeviceId = -1;
 static volatile float concertPitch = 440.0f;
+char *keybDev;
 
 Voice voices[MAX_VOICES];
 
@@ -385,10 +386,9 @@ void *midiReadThread (void *data)
 
   PaStreamParameters params;
 
-  const char *kbd_dev = LETTER_KEYB_EVENT;
-  int kbd_fd = openKeyboard(kbd_dev);
+  int kbd_fd = openKeyboard(keybDev);
   if (kbd_fd < 0) {
-    printf("missing a letter keyboard: %s\n", kbd_dev);
+    printf("missing this letter keyboard as event device: %s\n", keybDev);
   }
 
   int midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
@@ -454,7 +454,7 @@ void *midiReadThread (void *data)
       }
     }
 
-    int ret = poll(all, midi_count + 1, -1);
+    int ret = poll(all, midi_count + 1, 200);
     if (ret < 0) {
       if (errno == EINTR) {
         continue;
@@ -565,6 +565,7 @@ int main (int argc, char *argv[])
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
+  keybDev = DEFAULT_KEYB_EVENT;
 
   sa.sa_handler = handleSig;
   sigemptyset(&sa.sa_mask);
@@ -577,8 +578,9 @@ int main (int argc, char *argv[])
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], bufferSize);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], bufferSize, fading);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [sampleRate]\n", argv[0], bufferSize, fading, envelopeSamples);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %d\n", argv[0], bufferSize, fading, envelopeSamples, sampleRate);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [keypad]\n", argv[0], bufferSize, fading, envelopeSamples);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s [sampleRate]\n", argv[0], bufferSize, fading, envelopeSamples, keybDev);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s %d\n", argv[0], bufferSize, fading, envelopeSamples, keybDev, sampleRate);
     return 1;
   }
   if (argc >= 3) {
@@ -600,8 +602,11 @@ int main (int argc, char *argv[])
       fading *= -1;
     }
   }
-  if (argc == 7) {
-    sampleRate = atoi(argv[6]);
+  if (argc >= 7) {
+    keybDev = argv[6];
+  }
+  if (argc == 8) {
+    sampleRate = atoi(argv[7]);
   }
 
 
