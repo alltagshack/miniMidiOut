@@ -38,19 +38,19 @@
 
 typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 
-static volatile Modus mode = SAW;
-int bufferSize = DEFAULT_BUFFER_SIZE;
-int fading = DEFAULT_FADING;
-int sampleRate = DEFAULT_RATE;
-int autoFading = 0;
-unsigned int envelopeSamples = DEFAULT_ENVELOPE;
+int bufferSize;
+int fading;
+int sampleRate;
+int autoFading;
+unsigned int envelopeSamples;
+int outputDeviceId;
+char *keybDev;
 
+static volatile Modus mode;
 static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
 static volatile int sustain = 0;
-int outputDeviceId = -1;
 static volatile float concertPitch = 440.0f;
-char *keybDev;
 
 Voice voices[MAX_VOICES];
 
@@ -565,7 +565,16 @@ int main (int argc, char *argv[])
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
+
+  autoFading = 0;
+
+  mode = SAW;
+  outputDeviceId = -1;
+  bufferSize = DEFAULT_BUFFER_SIZE;
+  fading = DEFAULT_FADING;
+  envelopeSamples = DEFAULT_ENVELOPE;
   keybDev = DEFAULT_KEYB_EVENT;
+  sampleRate = DEFAULT_RATE;
 
   sa.sa_handler = handleSig;
   sigemptyset(&sa.sa_mask);
@@ -602,11 +611,14 @@ int main (int argc, char *argv[])
       fading *= -1;
     }
   }
-  if (argc >= 7) {
-    keybDev = argv[6];
+  if (argc == 7) {
+    envelopeSamples = atoi(argv[6]);
   }
-  if (argc == 8) {
-    sampleRate = atoi(argv[7]);
+  if (argc >= 8) {
+    keybDev = argv[7];
+  }
+  if (argc == 9) {
+    sampleRate = atoi(argv[8]);
   }
 
 

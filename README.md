@@ -123,9 +123,6 @@ Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **
   - create additional linux config file (driver for snd-bcm2835 and midi missing)
 - eeepc
   - better description for eeepc and configs
-  - an init.d script
-  - unmute sound device after boot
-  - handle issue with keypad, ctrl+c and ESC (does not work)
 
 # buildroot mods
 
@@ -145,23 +142,9 @@ add this line into `package/Config.in` e.g. in the menu *Audio and video applica
 	source "package/midisynth/Config.in"
 ```
 
-make a `init.d` dir as overlay:
+make this executeable:
 ```
-mkdir -p board/raspberrypi/rootfs-overlay/etc/init.d
-```
-
-for an autostart add a file `board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth`:
-```
-#!/bin/sh
-modprobe snd-bcm2835
-modprobe snd-usb-audio
-modprobe snd-seq-midi
-midiSynth hw:2,0,0 saw &
-```
-
-make it executeable:
-```
-chmod +x board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth
+chmod +x ../midisynth-src/pi1/rootfs-overlay/etc/init.d/S99midisynth
 ```
 
 add 2 lines into `board/raspberrypi/config_default.txt`:
@@ -188,13 +171,15 @@ Select/set this:
     - aplay
     - aseqdump
   - midisynth
+- Target packages: Hardware handling
+  - evtest
 - Target packages: Libraries: Audio/Sound
   - alsa-lib
     - everything!
     - especially *alsa-plugins*
   - portaudio (alsa + oss support)
 - System configuration: () Root filesystem overlay directories
-  - set the () empty to `board/raspberrypi/rootfs-overlay`
+  - set the () empty to `../midisynth-src/pi1/rootfs-overlay`
 - Kernel
   - build devicetree with overlay support
 
@@ -223,11 +208,7 @@ and then do a complete `make` again.
 
 ## notes eeepc
 
-Dass der Kernel bootet, ist ein großer Erfolg! Dass der Sound nicht funktioniert,
-liegt bei alten EeePCs (meist mit Intel High Definition Audio oder Realtek ALC 
-Chipsätzen) fast immer daran, dass entweder die Treiber nicht im Kernel aktiviert
-sind oder die benötigte Firmware/Alsa-Tools im Rootfs fehlen.
-Hier ist die Checkliste, um den Sound auf dem EeePC zum Laufen zu bringen:
+- overlay `../midisynth-src/eeepc_4G_701/rootfs-overlay`
 
 ### Kernel-Konfiguration (Treiber)
 
@@ -258,30 +239,6 @@ Device Drivers: Sound card support: Advanced Linux Sound Architecture: USB sound
 Achte darauf, dass auch die Codecs aktiviert sind (meist Realtek oder Generic).
 
 Speichere und verlasse das Menü.
-
-### Buildroot-Pakete (Software)
-
-Ohne die passenden Bibliotheken und Tools kann Linux den Soundchip
-nicht ansprechen.
-
-Führe `make menuconfig` aus.
-
-Gehe zu `Target packages -> Audio and video applications`.
-Aktiviere `alsa-utils`. Das gibt dir das Tool `amixer` und `alsamixer`.
-(Optional) Aktiviere `alsa-plugins`, falls du komplexere Audio-Ausgaben planst.
-
-### Sound aktivieren (Stummschaltung aufheben)
-
-Unter Linux ist der Sound nach dem Booten standardmäßig oft gemuted (stummgeschaltet).
-Nachdem du dein neues System gebootet hast, versuche Folgendes auf der Konsole:
-
-```
-aplay -l
-# Alle Kanäle entstummen und Lautstärke auf 100% setzen
-amixer sset Master unmute
-amixer sset Master 100%
-amixer sset Speaker unmute
-```
 
 ### Firmware (Wichtig für spätere Modelle)
 

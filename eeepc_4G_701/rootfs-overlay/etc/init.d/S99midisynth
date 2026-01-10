@@ -1,0 +1,36 @@
+#!/bin/sh
+# chkconfig: 2345 20 80
+# description: start midiSynth
+   
+start() {
+    modprobe snd-usb-audio
+    modprobe snd-seq-midi
+    amixer sset Master unmute
+    amixer sset Master 100%
+    amixer sset Speaker unmute
+    midiSynth hw:1,0,0 saw -1 16 10 16000 /dev/input/event5 44100 &
+}
+   
+stop() {
+    killall midiSynth
+}
+   
+case "$1" in 
+    start)
+       start
+       ;;
+    stop)
+       stop
+       ;;
+    restart)
+       stop
+       start
+       ;;
+    status)
+       ps aux | grep midiSynth
+       ;;
+    *)
+       echo "Usage: $0 {start|stop|status|restart}"
+esac
+   
+exit 0
