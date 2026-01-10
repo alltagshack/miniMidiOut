@@ -118,7 +118,7 @@ Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **
 
 - ram image
 - pi1
-  - there is a issue with hotplug the midi keyboard (urb status -32)
+  - there is a issue with hotplug the midi keyboard (urb status -32). I have to catch the alsa event!
 - eeepc
   - better description for eeepc and configs
 
@@ -215,6 +215,14 @@ and then do a complete `make` again.
 
 - overlay `../midisynth-src/eeepc_4G_701/rootfs-overlay`
 
+```
+make qemu_x86_defconfig
+make menuconfig
+  - Target options
+    - Target Architecture: x86
+    - Target Architecture Variant: i586   (or i486)
+```
+
 ### Kernel-Konfiguration (Treiber)
 
 Du musst sicherstellen, dass der passende Sound-Treiber fest im Kernel eingebaut ist (oder als Modul geladen wird).
@@ -239,7 +247,7 @@ Device Drivers: Sound card support: Advanced Linux Sound Architecture:
 Device Drivers: Sound card support: Advanced Linux Sound Architecture: USB sound devices:
 
 - <*> USB Audio/MIDI driver
-- [*] MIDI 2.0 support by USB Audio driver
+- [*] MIDI 2.0 support by USB Audio driver (?)
 
 Achte darauf, dass auch die Codecs aktiviert sind (meist Realtek oder Generic).
 

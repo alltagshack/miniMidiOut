@@ -518,8 +518,7 @@ void *midiReadThread (void *data)
           err = play(stream, midi_buf[0], midi_buf[1], midi_buf[2]);
           if (err) goto error;
 
-        } else if (n == -ENODEV) {
-
+        } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
           goto out;
         }
       } else if (all[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
