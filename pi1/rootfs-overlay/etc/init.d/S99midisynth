@@ -6,7 +6,7 @@ start() {
     modprobe snd-bcm2835
     modprobe snd-usb-audio
     modprobe snd-seq-midi
-    midiSynth hw:2,0,0 saw &
+    midiSynth hw:1,0,0 saw &
 }
    
 stop() {

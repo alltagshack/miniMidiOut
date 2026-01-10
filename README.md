@@ -118,9 +118,7 @@ Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **
 
 - ram image
 - pi1
-  - there is a issue with hotplug the midi keyboard
-  - add pi's vc4-kms-v3d.dtbo to overlay (must be open source)
-  - create additional linux config file (driver for snd-bcm2835 and midi missing)
+  - there is a issue with hotplug the midi keyboard (urb status -32)
 - eeepc
   - better description for eeepc and configs
 
@@ -173,6 +171,9 @@ Select/set this:
   - midisynth
 - Target packages: Hardware handling
   - evtest
+  - firmware
+    - (keep the pi0/1/2/3 pre selected untouched)
+    - Install DTB overlays
 - Target packages: Libraries: Audio/Sound
   - alsa-lib
     - everything!
@@ -183,13 +184,17 @@ Select/set this:
 - Kernel
   - build devicetree with overlay support
 
-save as `.config`. Maybe you have to select `Device Drivers: Sound card support`
-in the kernel via `make linux-menuconfig` and then do:
+save as `.config`.
+
+**Maybe** you have to select `Device Drivers: Sound card support`
+in the kernel via `make linux-menuconfig`. Alternative: use `midisynth-src/pi1/kernel-config.txt` as `output/build/linux-custom/.config`
+
+then do:
 ```
 make
 ```
 
-write image to sd-card on e.g. `/dev/mmcblk0`:
+Write image to sd-card on e.g. `/dev/mmcblk0`:
 ```
 sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
 ```
