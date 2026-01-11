@@ -2,26 +2,14 @@
 
 A fast midi input to audio output synthesizer with 5 popular waveforms.
 
-## build
-
-On debian or ubuntu you need these packages:
-
-- gcc
-- portaudio19-dev
-- libasound-dev
-
-```
-gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
-```
-
-### cmake alternative build
-
-```
-cmake -B .
-cmake --build .
-```
-
 ## Usage
+
+You can use (and build) the command line interface (CLI) `miniMidiOut` on many Linux systems.
+It does not use a realtime linux-kernel. An alternative way is the usage of my Raspberry-Pi1 sd-card image 
+or my sd-card image for the eeepc 4G 701 (32bit Pentium, BIOS boot). With theses images the system
+boots a minimal Linux and starts `miniMidiOut` via the init.d script in `/etc/init.d/S99miniMidiOut`.
+
+### Non SD-Card usage
 
 Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
 
@@ -33,7 +21,7 @@ sudo add usermod -aG input YOURSELF
 
 After logout and relogin YOURSELF you and `miniMidiOut` have the right to access keypad events (`/dev/input/event0`).
 
-### CLI
+### Start it
 
 For sinus wave similar to a bell or flute:
 ```
@@ -109,20 +97,35 @@ Change octave:
 
 ### MIDI device
 
-Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **noise**:
+Switch through the waveforms **sinus**, **saw**, **square**, **triangle** and **noise**:
 
 - no sound should be played
 - you press the sustain pedal 3 times in 1.5 seconds
 
-## todo (primary buildroot)
+## Bugs
 
-- ram image
-- pi1
-  - there is a issue with hotplug the midi keyboard (urb status -32). I have to catch the alsa event!
-- eeepc
-  - better description for eeepc and configs
+On pi1: hotplug the midi keyboard out gives a "urb status -32". I have to catch the alsa plugout event?
 
-# buildroot mods
+# Build
+
+On debian or ubuntu you need these packages:
+
+- gcc
+- portaudio19-dev
+- libasound-dev
+
+```
+gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
+```
+
+## Cmake alternative build
+
+```
+cmake -B .
+cmake --build .
+```
+
+## Build SD-Card via buildroot (Pi1)
 
 copy `pkg/` to buildroot packages:
 ```
@@ -199,7 +202,7 @@ Write image to sd-card on e.g. `/dev/mmcblk0`:
 sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
 ```
 
-## hint
+### Hints for buildroot
 
 if code changed:
 ```
@@ -211,7 +214,9 @@ make miniMidiOut-dirclean
 ```
 and then do a complete `make` again.
 
-## notes eeepc
+## Build SD-Card via buildroot (eeepc)
+
+**description is not ready** !!!!!!!!!!!!!
 
 - overlay `../miniMidiOut-src/eeepc_4G_701/rootfs-overlay`
 
