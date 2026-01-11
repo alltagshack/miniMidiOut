@@ -206,13 +206,13 @@ sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
 
 if code changed:
 ```
-make miniMidiOut-rebuild
+make miniMidiOut-dirclean
 ```
 or
 ```
-make miniMidiOut-dirclean
+make miniMidiOut-rebuild
 ```
-and then do a complete `make` again.
+and then do a complete `make` again or just copy the new executable `output/build/miniMidiOut-1.0/miniMidiOut` to `/usr/bin/` on the sd-card.
 
 ## Build SD-Card via buildroot (eeepc)
 
