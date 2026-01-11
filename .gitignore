@@ -2,8 +2,7 @@
 
 build/**/*
 a.out
-MidiSynth
-midiSynth
+miniMidiOut
 
 portaudio/**/*
 *.tgz
