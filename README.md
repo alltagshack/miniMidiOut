@@ -15,7 +15,7 @@ boots a minimal Linux and starts `miniMidiOut` via the init.d script in `/etc/in
 
 Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
 
-Add YOURSELF to the input group. The code uses as letter keyboard, if it exists.
+Add YOURSELF to the input group. The code uses a letter keyboard or usb numpad, if it exists.
 
 ```
 sudo add usermod -aG input YOURSELF
