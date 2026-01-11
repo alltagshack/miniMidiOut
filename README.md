@@ -187,6 +187,9 @@ Select/set this:
     - aplay
     - aseqdump
   - miniMidiOut
+- Filesystem images:
+  - cpio the root filesystem
+    - compression method (gzip)
 - Target packages: Hardware handling
   - evtest
   - firmware
@@ -228,6 +231,29 @@ or
 make miniMidiOut-rebuild
 ```
 and then do a complete `make` again or just copy the new executable `output/build/miniMidiOut-1.0/miniMidiOut` to `/usr/bin/` on the sd-card.
+
+### Pi1 ramdisk
+
+Similar to the normal way to build a sd-card image, there is a 2nd one.
+The upper description creates a `rootfs.cpio.gz` with the complete root filesystem.
+You can use this file instead of an ext4 root filesystem on your sd-card.
+The system will work in a copy of that filesystem, which is placed in
+the RAM. The system will never write something (back) to the sd-card!
+
+- make a single msdos/fat32 partition (minimum 62MB) on your sd-card
+- copy to that partition...
+  - the 4 `output/images/bcm2708*` files
+  - the file `output/images/rootfs.cpio.gz`
+  - the linux kernel `output/images/zImage`
+  - the content of `output/images/rpi-firmware/`
+    - uncomment the line `initramfs rootfs.cpio.gz` in `config.txt`
+    - change `root=/dev/mmcblk0p2` into `root=/dev/ram0` in `cmdline.txt`
+- do not forget to copy the `overlays` folder inside `output/images/rpi-firmware/`
+
+
+
+
+
 
 ## Build SD-Card via buildroot (eeepc)
 
