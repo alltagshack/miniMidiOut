@@ -2,6 +2,8 @@
 
 A fast midi input to audio output synthesizer with 5 popular waveforms.
 
+Messurement on Raspberry Pi1 (it is not realy realtime): delay between key press an audio out is 70ms :-S
+
 ## Usage
 
 You can use (and build) the command line interface (CLI) `miniMidiOut` on many Linux systems.
