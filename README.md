@@ -106,7 +106,8 @@ Switch through the waveforms **sinus**, **saw**, **square**, **triangle** and **
 
 ## Bugs
 
-On pi1: hotplug the midi keyboard out gives a "urb status -32". I have to catch the alsa plugout event?
+On pi1: hotplug the midi keyboard out gives a "urb status -32". If you add `dwc_otg.speed=1` to
+the `cmdline.txt`, it is a fix, but a USB keyboad/numpad will not work.
 
 # Build
 
@@ -129,23 +130,35 @@ cmake --build .
 
 ## Build SD-Card via buildroot (Pi1)
 
-copy `pkg/` to buildroot packages:
+Check out my code and uncompress `buildroot-2025.02.9.tar.gz`:
+
+```
+git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
+tar -xzf buildroot-2025.02.9.tar.gz
+```
+
+use the `cmdline.txt` from my code:
+```
+cp miniMidiOut-src/pi1/cmdline.txt buildroot-2025.02.9/board/raspberrypi/cmdline.txt
+```
+
+Copy `pkg/` to buildroot packages:
 ```
 mkdir -p buildroot-2025.02.9/package/miniMidiOut
 cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/miniMidiOut/
 ```
 
-change to buildroot:
+Change into buildroot:
 ```
 cd buildroot-2025.02.9/
 ```
 
-add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
+Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
 	source "package/miniMidiOut/Config.in"
 ```
 
-make this executeable:
+Make this executeable:
 ```
 chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99miniMidiOut
 ```

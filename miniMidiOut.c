@@ -385,20 +385,27 @@ void *midiReadThread (void *data)
   PaStream *stream;
   PaError err;
   PaStreamParameters params;
+  int i;
+  int kbd_fd;
+  int midi_count;
+  struct pollfd *pfds;
+  struct pollfd *all;
+  struct input_event ev;
+  ssize_t n;
 
-  int kbd_fd = openKeyboard(keybDev);
+  kbd_fd = openKeyboard(keybDev);
   if (kbd_fd < 0) {
     printf("missing this letter keyboard as event device: %s\n", keybDev);
   }
 
-  int midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
-  struct pollfd *pfds = calloc(midi_count, sizeof(struct pollfd));
+  midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
+  pfds = calloc(midi_count, sizeof(struct pollfd));
   snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
 
-  struct pollfd *all = calloc(midi_count + 1, sizeof(struct pollfd));
+  all = calloc(midi_count + 1, sizeof(struct pollfd));
 
   /* copy midi pfds */
-  for (int i = 0; i < midi_count; ++i) {
+  for (i = 0; i < midi_count; ++i) {
     all[i] = pfds[i];
     all[i].events = POLLIN;
   }
@@ -460,14 +467,13 @@ void *midiReadThread (void *data)
         continue;
       }
       fprintf(stderr, "error poll\n");
-      break;
+      goto out;
     }
 
 
     if ((kbd_fd >= 0) && (all[midi_count].revents & POLLIN))
     {
-      struct input_event ev;
-      ssize_t n = read(kbd_fd, &ev, sizeof(ev));
+      n = read(kbd_fd, &ev, sizeof(ev));
       if (n == sizeof(ev) && ev.type == EV_KEY)
       {
           if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {
@@ -508,30 +514,34 @@ void *midiReadThread (void *data)
         }
     }
 
-    for (int i = 0; i < midi_count; ++i) {
+    for (i = 0; i < midi_count; ++i)
+    {
+      if (all[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
+        goto out;
+      }
+
       if (all[i].revents & POLLIN) {
 
-        ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
+        n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
 
         if (n > 0) {
-
           err = play(stream, midi_buf[0], midi_buf[1], midi_buf[2]);
           if (err) goto error;
 
         } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
           goto out;
         }
-      } else if (all[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        goto out;
       }
 
-    } /* end midi polls */
+    } /* end for midi polls */
 
   } /* end while */
 
   printf("quitting...\n");
 
 out:
+  snd_rawmidi_drop((snd_rawmidi_t *)data);
+
   if (Pa_IsStreamActive(stream)) {
     err = Pa_StopStream(stream);
     if (err != paNoError)
@@ -539,31 +549,26 @@ out:
   }
 
   err = Pa_CloseStream(stream);
-  if (err != paNoError)
-    goto error;
-
-  Pa_Terminate();
-  if (kbd_fd >= 0) close(kbd_fd);
-  free(all);
-  free(pfds);
-  return NULL;
 
 error:
+  if (err != paNoError) 
+    fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
+
   Pa_Terminate();
   if (kbd_fd >= 0) close(kbd_fd);
   free(all);
   free(pfds);
-  fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
   return NULL;
 }
 
 
 int main (int argc, char *argv[])
 {
-  snd_rawmidi_t *midi_in;
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
+  snd_rawmidi_t *midi_in;
+  int alsaerr;
 
   /* only if root start. only senseful on PREEMPT_RT linux.
 
@@ -633,21 +638,20 @@ int main (int argc, char *argv[])
 
   while (keepRunning)
   {
-    int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
-    if (err < 0)
+    midi_in = NULL;
+    alsaerr = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
+    if (alsaerr < 0)
     {
-      if (waiting(500) != 0) {
-        fprintf(stderr, "error during wait for opening a midi device: %s\n", snd_strerror(err));
-        return 1;
-      }
+      waiting(500);
+      continue;
     }
-    else
-    {
-      pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
-      pthread_join(midi_read_thread, NULL);
+    pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
+    pthread_join(midi_read_thread, NULL);
+    
+    snd_rawmidi_drop(midi_in);
+    snd_rawmidi_close(midi_in);
 
-      snd_rawmidi_close(midi_in);
-    }
+    waiting(200);
   }
 
   return 0;
