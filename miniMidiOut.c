@@ -2,6 +2,7 @@
 #include <linux/input-event-codes.h>
 #include <math.h>
 #include <portaudio.h>
+
 #include <pthread.h>
 
 #include <signal.h>
@@ -16,7 +17,7 @@
 #include "NoiseDetail.h"
 #include "Voice.h"
 
-// 48000 44100 16000 11025
+/* 48000 44100 16000 11025 */
 #define DEFAULT_RATE           44100
 #define MAX_VOICES             16
 #define DEFAULT_BUFFER_SIZE    16
@@ -110,7 +111,7 @@ Voice *getVoiceForNote () {
     if (voices[i].active == 0)
       return &voices[i];
   }
-  // no non active voice found. we use voice 0!
+  /* no non active voice found. we use voice 0! */
   activeCount--;
   return &voices[0];
 }
@@ -150,7 +151,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           if (sustain == 1) {
             voices[j].volume -= 0.000002f;
           } else if (sustain == 2) {
-            // on release sustain we force a faster silence
+            /* on release sustain we force a faster silence */
             voices[j].volume = 0.0001f;
           } else {
             voices[j].volume -= (float)fading * 0.000005f;
@@ -225,11 +226,11 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
 
       }
     }
-    // after all voices are faded out, the release of sustain ends
+    /* after all voices are faded out, the release of sustain ends */
     if (sustain == 2) sustain = 0;
 
-    *out++ = sample; // left
-    *out++ = sample; // right
+    *out++ = sample; /* left */
+    *out++ = sample; /* right */
   }
 
   return paContinue;
@@ -237,11 +238,11 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
 
 void switchMode (char m) {
   if (m == '\0') {
-    if (mode == SINUS) m = 'a'; // -> sAw
-    if (mode == SAW) m = 'q'; // -> sQuare
-    if (mode == SQUARE) m = 'r'; // -> tRiangle
-    if (mode == TRIANGLE) m = 'o'; // -> nOise
-    if (mode == NOISE) m = 'i'; // -> sInus
+    if (mode == SINUS) m = 'a'; /* -> sAw */
+    if (mode == SAW) m = 'q'; /* -> sQuare */
+    if (mode == SQUARE) m = 'r'; /* -> tRiangle */
+    if (mode == TRIANGLE) m = 'o'; /* -> nOise */
+    if (mode == NOISE) m = 'i'; /* -> sInus */
   }
 
   if (m == 'i') {
@@ -296,7 +297,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
       userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
       userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
 
-      // bass boost
+      /* bass boost */
       float shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
       float shelf_bw = 2.0f * M_PI * shelf_fc / sampleRate;
       userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
@@ -316,7 +317,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
     if (vel == 0x00) sustain = 2;
 
     if (old_sustain == 1 && sustain == 2) {
-      // release sustain
+      /* release sustain */
       sustain = 0;
     }
 
@@ -343,7 +344,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
   } else if ((status & 0xF0) == 0x80 ||
             ((status & 0xF0) == 0x90 && vel == 0)) {
 
-    // release a tone
+    /* release a tone */
 
     float freq = midi2Freq(&note);
     Voice *v = findVoiceByFreq(&freq);
@@ -383,7 +384,6 @@ void *midiReadThread (void *data)
   unsigned char midi_buf[3];
   PaStream *stream;
   PaError err;
-
   PaStreamParameters params;
 
   int kbd_fd = openKeyboard(keybDev);
@@ -397,13 +397,13 @@ void *midiReadThread (void *data)
 
   struct pollfd *all = calloc(midi_count + 1, sizeof(struct pollfd));
 
-  // copy midi pfds
+  /* copy midi pfds */
   for (int i = 0; i < midi_count; ++i) {
     all[i] = pfds[i];
     all[i].events = POLLIN;
   }
   if (kbd_fd >= 0) {
-    // keyboard as last poll element
+    /* keyboard as last poll element */
     all[midi_count].fd = kbd_fd;
     all[midi_count].events = POLLIN;
   }
@@ -525,9 +525,9 @@ void *midiReadThread (void *data)
         goto out;
       }
 
-    } // end midi polls
+    } /* end midi polls */
 
-  } // end while
+  } /* end while */
 
   printf("quitting...\n");
 
@@ -564,6 +564,13 @@ int main (int argc, char *argv[])
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
+
+  /* only if root start. only senseful on PREEMPT_RT linux.
+
+  struct sched_param p = { .sched_priority = 98 };
+  sched_setscheduler(0, SCHED_FIFO, &p);
+
+  */
 
   autoFading = 0;
 
@@ -619,7 +626,6 @@ int main (int argc, char *argv[])
   if (argc == 9) {
     sampleRate = atoi(argv[8]);
   }
-
 
   rngSeed((uint32_t)time(NULL));
   sigaction(SIGINT, &sa, NULL);
