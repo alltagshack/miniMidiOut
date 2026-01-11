@@ -1,4 +1,4 @@
-# midiSynth
+# miniMidiOut
 
 A fast midi input to audio output synthesizer with 5 popular waveforms.
 
@@ -11,7 +11,7 @@ On debian or ubuntu you need these packages:
 - libasound-dev
 
 ```
-gcc midiSynth.c -Wall -lm -lportaudio -lasound -pthread -o midiSynth
+gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
 ```
 
 ### cmake alternative build
@@ -31,44 +31,44 @@ Add YOURSELF to the input group. The code uses as letter keyboard, if it exists.
 sudo add usermod -aG input YOURSELF
 ```
 
-After logout and relogin YOURSELF you and `midiSynth` have the right to access keypad events (`/dev/input/event0`).
+After logout and relogin YOURSELF you and `miniMidiOut` have the right to access keypad events (`/dev/input/event0`).
 
 ### CLI
 
 For sinus wave similar to a bell or flute:
 ```
-midiSynth hw:2,0,0 sin
+miniMidiOut hw:2,0,0 sin
 ```
 
 For saw sound effect. It is the synth-sound from the 80th and similar to a spinet:
 ```
-midiSynth hw:2,0,0 saw
+miniMidiOut hw:2,0,0 saw
 ```
 
 For square sound effect similar to 8bit arcade game from the 80th:
 ```
-midiSynth hw:2,0,0 sqr
+miniMidiOut hw:2,0,0 sqr
 ```
 
 For triangle sound effect similar to a cheap electric doorbell or gong:
 ```
-midiSynth hw:2,0,0 tri
+miniMidiOut hw:2,0,0 tri
 ```
 
 For noise sound effect similar to wind, ocean waves or percussion:
 ```
-midiSynth hw:2,0,0 noi
+miniMidiOut hw:2,0,0 noi
 ```
 
-After starting `midiSynth` with success, it plays 3 tones as startup theme.
+After starting `miniMidiOut` with success, it plays 3 tones as startup theme.
 
-`midiSynth` uses the default audio device for output. You can
-change this e.g. `hw:1` with an optional 3rd `midiSynth hw:2,0,0 sin 1`.
-The default is used with `midiSynth hw:2,0,0 tri -1`.
+`miniMidiOut` uses the default audio device for output. You can
+change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
+The default is used with `miniMidiOut hw:2,0,0 tri -1`.
 
-`midiSynth` has an optional 4th parameter for the buffer size. The default
+`miniMidiOut` has an optional 4th parameter for the buffer size. The default
 is `16` and works well on Pi1. You can change the buffer e.g. to `512`
-with `midiSynth hw:2,0,0 sin -1 512` if you want.
+with `miniMidiOut hw:2,0,0 sin -1 512` if you want.
 
 There is an optional 5th parameter form `-20` to `100` (fade). A negative value
 fades the sound of a key out WHILE it is pressed. With a value of `-20` this
@@ -126,8 +126,8 @@ Switch through the waveform s**sinus**, **saw**, **square**, **triangle** and **
 
 copy `pkg/` to buildroot packages:
 ```
-mkdir -p buildroot-2025.02.9/package/midisynth
-cp midisynth-src/pkg/* buildroot-2025.02.9/package/midisynth/
+mkdir -p buildroot-2025.02.9/package/miniMidiOut
+cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/miniMidiOut/
 ```
 
 change to buildroot:
@@ -137,12 +137,12 @@ cd buildroot-2025.02.9/
 
 add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
-	source "package/midisynth/Config.in"
+	source "package/miniMidiOut/Config.in"
 ```
 
 make this executeable:
 ```
-chmod +x ../midisynth-src/pi1/rootfs-overlay/etc/init.d/S99midisynth
+chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99miniMidiOut
 ```
 
 add 2 lines into `board/raspberrypi/config_default.txt`:
@@ -168,7 +168,7 @@ Select/set this:
     - amixer
     - aplay
     - aseqdump
-  - midisynth
+  - miniMidiOut
 - Target packages: Hardware handling
   - evtest
   - firmware
@@ -180,14 +180,14 @@ Select/set this:
     - especially *alsa-plugins*
   - portaudio (alsa + oss support)
 - System configuration: () Root filesystem overlay directories
-  - set the () empty to `../midisynth-src/pi1/rootfs-overlay`
+  - set the () empty to `../miniMidiOut-src/pi1/rootfs-overlay`
 - Kernel
   - build devicetree with overlay support
 
 save as `.config`.
 
 **Maybe** you have to select `Device Drivers: Sound card support`
-in the kernel via `make linux-menuconfig`. Alternative: use `midisynth-src/pi1/kernel-config.txt` as `output/build/linux-custom/.config`
+in the kernel via `make linux-menuconfig`. Alternative: use `miniMidiOut-src/pi1/kernel-config.txt` as `output/build/linux-custom/.config`
 
 then do:
 ```
@@ -203,17 +203,17 @@ sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
 
 if code changed:
 ```
-make midisynth-rebuild
+make miniMidiOut-rebuild
 ```
 or
 ```
-make midisynth-dirclean
+make miniMidiOut-dirclean
 ```
 and then do a complete `make` again.
 
 ## notes eeepc
 
-- overlay `../midisynth-src/eeepc_4G_701/rootfs-overlay`
+- overlay `../miniMidiOut-src/eeepc_4G_701/rootfs-overlay`
 
 ```
 make qemu_x86_defconfig

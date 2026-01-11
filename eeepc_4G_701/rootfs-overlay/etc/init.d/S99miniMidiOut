@@ -1,16 +1,18 @@
 #!/bin/sh
 # chkconfig: 2345 20 80
-# description: start midiSynth
+# description: start miniMidiOut
    
 start() {
-    modprobe snd-bcm2835
     modprobe snd-usb-audio
     modprobe snd-seq-midi
-    midiSynth hw:1,0,0 saw &
+    amixer sset Master unmute
+    amixer sset Master 100%
+    amixer sset Speaker unmute
+    miniMidiOut hw:1,0,0 saw -1 16 10 16000 /dev/input/event5 44100 &
 }
    
 stop() {
-    killall midiSynth
+    killall miniMidiOut
 }
    
 case "$1" in 
@@ -25,7 +27,7 @@ case "$1" in
        start
        ;;
     status)
-       ps aux | grep midiSynth
+       ps aux | grep miniMidiOut
        ;;
     *)
        echo "Usage: $0 {start|stop|status|restart}"

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(midiSynth C)
+project(miniMidiOut C)
 
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
@@ -32,9 +32,9 @@ if(NOT MATH_LIBRARY)
         "Install the Debian package: libc6-dev (contains libm).")
 endif()
 
-add_executable(midiSynth midiSynth.c)
+add_executable(miniMidiOut miniMidiOut.c)
 
-target_link_libraries(midiSynth
+target_link_libraries(miniMidiOut
     ${PORTAUDIO_LIBRARY}
     ${ASOUND_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}

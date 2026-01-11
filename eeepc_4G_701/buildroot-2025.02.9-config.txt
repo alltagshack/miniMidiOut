@@ -469,7 +469,7 @@ BR2_GENERATE_LOCALE=""
 # BR2_SYSTEM_ENABLE_NLS is not set
 # BR2_TARGET_TZ_INFO is not set
 BR2_ROOTFS_USERS_TABLES=""
-BR2_ROOTFS_OVERLAY="../midisynth-src/eeepc_4G_701/rootfs-overlay"
+BR2_ROOTFS_OVERLAY="../miniMidiOut-src/eeepc_4G_701/rootfs-overlay"
 BR2_ROOTFS_PRE_BUILD_SCRIPT=""
 BR2_ROOTFS_POST_BUILD_SCRIPT=""
 BR2_ROOTFS_POST_FAKEROOT_SCRIPT=""
@@ -676,7 +676,7 @@ BR2_PACKAGE_PULSEAUDIO_HAS_ATOMIC=y
 #
 # zynaddsubfx needs a toolchain w/ C++11 and threads
 #
-BR2_PACKAGE_MIDISYNTH=y
+BR2_PACKAGE_MINIMIDIOUT=y
 
 #
 # Compressors and decompressors
