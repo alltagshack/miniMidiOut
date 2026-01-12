@@ -56,7 +56,7 @@ Switch through the waveforms **saw**, **square**, **triangle**, **noise** and **
 - no sound should be played
 - you press the sustain pedal 3 times in 1.5 seconds
 
-[Listen to the Audio File](https://raw.githubusercontent.com/no-go/miniMidiOut/main/misc/example.mp3)
+[Listen to the Audio File](https://raw.githubusercontent.com/no-go/miniMidiOut/refs/heads/main/misc/example.mp3)
 
 ## Bugs
 
