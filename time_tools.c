@@ -1,7 +1,7 @@
 #include <time.h>
-#include "Timetools.h"
+#include "time_tools.h"
 
-int waiting (unsigned int ms)
+int tt_waiting (unsigned int ms)
 {
   struct timespec req = {0};
   req.tv_sec  = 0;
@@ -12,7 +12,7 @@ int waiting (unsigned int ms)
   return 0;
 }
 
-unsigned int now (void) {
+unsigned int tt_now (void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     /* (seconds * 1000) + (nanoseconds / 1 000 000) a 32‑Bit‑Overflow is ok */

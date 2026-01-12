@@ -14,11 +14,13 @@
 #include <linux/input.h>
 #include <poll.h>
 
-#include "Modus.h"
-#include "NoiseDetail.h"
-#include "Voice.h"
-#include "PseudoRandom.h"
-#include "Timetools.h"
+#include "modus.h"
+#include "noise.h"
+#include "voice.h"
+#include "pseudo_random.h"
+#include "time_tools.h"
+#include "keyboard.h"
+#include "globals.h"
 
 /* 48000 44100 16000 11025 */
 #define DEFAULT_RATE           44100
@@ -34,34 +36,6 @@
 #define SUSTAIN_MODESWITCH_MS  1500U
 #define SUSTAIN_NEEDED         3U
 
-#define NOISE_BASS_BOOST_FREQ  220.0f
-#define NOISE_BASS_BOOST_VALUE 8.0f
-
-#define DEFAULT_KEYB_EVENT     "/dev/input/event0"
-
-int bufferSize;
-int fading;
-int sampleRate;
-int autoFading;
-unsigned int envelopeSamples;
-int outputDeviceId;
-char *keybDev;
-
-static volatile int keepRunning = 1;
-static volatile int sustain = 0;
-
-void handleSig (int sig) { keepRunning = 0; }
-
-static int openKeyboard (const char *devpath)
-{
-    int fd = open(devpath, O_RDONLY | O_NONBLOCK);
-    if (fd < 0) {
-        perror("open keyboard");
-        return -1;
-    }
-    return fd;
-}
-
 static int audioCallback (const void *inputBuffer, void *outputBuffer,
                          unsigned long framesPerBuffer,
                          const PaStreamCallbackTimeInfo *timeInfo,
@@ -69,39 +43,39 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
 
   float *out = (float *)outputBuffer;
   unsigned int i, j;
-  int cnt = activeCount;
+  int cnt = voice_active;
   if (cnt < 1) {
     return paContinue;
   }
   for (i = 0; i < framesPerBuffer; ++i) {
     float sample = 0.0f;
     float env = 1.0f;
-    for (j = 0; j < MAX_VOICES; ++j) {
+    for (j = 0; j < VOICE_MAX; ++j) {
       if (voices[j].active > 0) {
 
-        if (voices[j].envelope != 0 && envelopeSamples != 0) {
-          env += ENVELOPE_MAX * ((float)voices[j].envelope / envelopeSamples);
+        if (voices[j].envelope != 0 && g_envelopeSamples != 0) {
+          env += ENVELOPE_MAX * ((float)voices[j].envelope / g_envelopeSamples);
           voices[j].envelope--;
         }
 
         if (voices[j].active == 2) {
-          if (sustain == 1) {
+          if (g_sustain == 1) {
             voices[j].volume -= 0.000002f;
-          } else if (sustain == 2) {
+          } else if (g_sustain == 2) {
             /* on release sustain we force a faster silence */
             voices[j].volume = 0.0001f;
           } else {
-            voices[j].volume -= (float)fading * 0.000005f;
+            voices[j].volume -= (float)g_fading * 0.000005f;
           }
         }
 
         if ((i == 0) && (voices[j].volume < 0.001f)) {
           voices[j].volume = 0.0f;
           voices[j].active = 0;
-          activeCount--;
+          voice_active--;
         }
 
-        switch (mode) {
+        switch (modus) {
           case SAW:
             sample += env * voices[j].volume * (2.0f * voices[j].phase - 1.0f);
             break;
@@ -121,7 +95,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
             break;
           }
           case NOISE: {
-            float n = rngFloat();
+            float n = pr_float();
 
             voices[j].noise_detail.lowpass_state +=
               voices[j].noise_detail.lowpass_alpha * (n - voices[j].noise_detail.lowpass_state);
@@ -156,7 +130,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
             sample += env * voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
         }
 
-        voices[j].phase += voices[j].freq / sampleRate;
+        voices[j].phase += voices[j].freq / g_sampleRate;
         if (voices[j].phase >= 1.0f) {
           voices[j].phase -= 1.0f;
         }
@@ -164,7 +138,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
       }
     }
     /* after all voices are faded out, the release of sustain ends */
-    if (sustain == 2) sustain = 0;
+    if (g_sustain == 2) g_sustain = 0;
 
     *out++ = sample; /* left */
     *out++ = sample; /* right */
@@ -181,26 +155,26 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
   static int old_sustain = 0;
 
   if ((status & 0xF0) == 0x90 && vel > 0) {
-    float freq = midi2Freq(&note);
+    float freq = voice_midi2freq(&note);
     printf("%.2f Hz (%d)\n", freq, vel);
 
-    Voice *userData = getVoiceForNote();
+    Voice *userData = voice_get();
 
-    activeCount++;
-    userData->active = (autoFading == 1)? 2 : 1;
+    voice_active++;
+    userData->active = (g_autoFading == 1)? 2 : 1;
     userData->phase = 0.0;
     userData->freq = freq;
     userData->volume = 0.7f * ((float)vel / 127.0f);
-    userData->envelope = envelopeSamples;
+    userData->envelope = g_envelopeSamples;
 
-    if (mode == NOISE)
+    if (modus == NOISE)
     {
       float lowcut_freq = 0.5f * freq;
       userData->noise_detail.lowpass_alpha =
-        (2.0f * M_PI * lowcut_freq / sampleRate) /
-        (1.0f + 2.0f * M_PI * lowcut_freq / sampleRate);
+        (2.0f * M_PI * lowcut_freq / g_sampleRate) /
+        (1.0f + 2.0f * M_PI * lowcut_freq / g_sampleRate);
       
-      float c  = 1.0f / tanf(M_PI * freq / sampleRate);
+      float c  = 1.0f / tanf(M_PI * freq / g_sampleRate);
       userData->noise_detail.bandmix = 1.0f / (1.0f + c / 0.7f + c * c);
       
       userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
@@ -209,7 +183,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
 
       /* bass boost */
       float shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
-      float shelf_bw = 2.0f * M_PI * shelf_fc / sampleRate;
+      float shelf_bw = 2.0f * M_PI * shelf_fc / g_sampleRate;
       userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
       float boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
       userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
@@ -221,17 +195,17 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
     }
 
   } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
-    now_ms = now();
+    now_ms = tt_now();
 
-    if (vel == 0x7F) sustain = 1;
-    if (vel == 0x00) sustain = 2;
+    if (vel == 0x7F) g_sustain = 1;
+    if (vel == 0x00) g_sustain = 2;
 
-    if (old_sustain == 1 && sustain == 2) {
+    if (old_sustain == 1 && g_sustain == 2) {
       /* release sustain */
-      sustain = 0;
+      g_sustain = 0;
     }
 
-    if (old_sustain == 1 && (sustain == 0 || sustain == 2) && Pa_IsStreamStopped(stream)) {
+    if (old_sustain == 1 && (g_sustain == 0 || g_sustain == 2) && Pa_IsStreamStopped(stream)) {
       if (count == 0) start_ms = now_ms;
       count++;
     }
@@ -241,23 +215,23 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
     }
 
     printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
-      old_sustain, sustain, count, activeCount);
+      old_sustain, g_sustain, count, voice_active);
 
     if (count >= SUSTAIN_NEEDED)
     {
       count = 0;
-      switchMode('\0');
+      modus_switch('\0');
     }
 
-    old_sustain = sustain;
+    old_sustain = g_sustain;
 
   } else if ((status & 0xF0) == 0x80 ||
             ((status & 0xF0) == 0x90 && vel == 0)) {
 
     /* release a tone */
 
-    float freq = midi2Freq(&note);
-    Voice *v = findVoiceByFreq(&freq);
+    float freq = voice_midi2freq(&note);
+    Voice *v = voice_find_by_freq(&freq);
     if (v) {
       v->active = 2;
     }
@@ -266,19 +240,19 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
   return paNoError;
 }
 
-PaError playStartupTheme (PaStream *stream)
+static PaError _theme (PaStream *stream)
 {
   PaError err = paNoError;
 
   err = play (stream, 0x90, 0x30, 0x42);
   if (err != paNoError) return err;
-  waiting(500);
+  tt_waiting(500);
   err = play (stream, 0x90, 0x32, 0x42);
   if (err != paNoError) return err;
-  waiting(500);
+  tt_waiting(500);
   err = play (stream, 0x90, 0x34, 0x42);
   if (err != paNoError) return err;
-  waiting(500);
+  tt_waiting(500);
 
   err = play (stream, 0x90, 0x30, 0x0);
   if (err != paNoError) return err;
@@ -303,9 +277,9 @@ void *midiReadThread (void *data)
   struct input_event ev;
   ssize_t n;
 
-  kbd_fd = openKeyboard(keybDev);
+  kbd_fd = keyboard_open();
   if (kbd_fd < 0) {
-    printf("missing this letter keyboard as event device: %s\n", keybDev);
+    printf("missing this letter keyboard as event device: %s\n", keyboard_dev);
   }
 
   midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
@@ -330,41 +304,41 @@ void *midiReadThread (void *data)
   if (err != paNoError)
     goto error;
 
-  if (outputDeviceId >= 0) {
-    params.device = outputDeviceId;
+  if (g_outputDeviceId >= 0) {
+    params.device = g_outputDeviceId;
     params.channelCount = 2;
     params.sampleFormat = paFloat32;
-    params.suggestedLatency = Pa_GetDeviceInfo(outputDeviceId)->defaultLowOutputLatency;
+    params.suggestedLatency = Pa_GetDeviceInfo(g_outputDeviceId)->defaultLowOutputLatency;
     params.hostApiSpecificStreamInfo = NULL;
 
     err = Pa_OpenStream(
       &stream,
       NULL,
       &params,
-      sampleRate,
-      bufferSize,
+      g_sampleRate,
+      g_bufferSize,
       paClipOff,
       audioCallback,
       NULL
     );
   } else {
     err = Pa_OpenDefaultStream(
-      &stream, 0, 2, paFloat32, sampleRate,
-      bufferSize, audioCallback, NULL
+      &stream, 0, 2, paFloat32, g_sampleRate,
+      g_bufferSize, audioCallback, NULL
     );
   }
   if (err != paNoError)
     goto error;
 
-  err = playStartupTheme(stream);
+  err = _theme(stream);
   if (err != paNoError)
     goto error;
   
 
-  while (keepRunning)
+  while (g_keepRunning)
   {
-    if (activeCount < 1 && Pa_IsStreamActive(stream)) {
-      activeCount = 0;
+    if (voice_active < 1 && Pa_IsStreamActive(stream)) {
+      voice_active = 0;
       err = Pa_StopStream(stream);
       if (err != paNoError) {
         goto error;
@@ -387,37 +361,37 @@ void *midiReadThread (void *data)
       if (n == sizeof(ev) && ev.type == EV_KEY)
       {
           if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {
-            switchMode('i');
+            modus_switch('i');
           } else if ((ev.code == KEY_KP2 || ev.code == KEY_2) && ev.value == 1) {
-            switchMode('a');
+            modus_switch('a');
           } else if ((ev.code == KEY_KP3 || ev.code == KEY_3) && ev.value == 1) {
-            switchMode('q');
+            modus_switch('q');
           } else if ((ev.code == KEY_KP4 || ev.code == KEY_4) && ev.value == 1) {
-            switchMode('r');
+            modus_switch('r');
           } else if ((ev.code == KEY_KP5 || ev.code == KEY_5) && ev.value == 1) {
-            switchMode('o');
+            modus_switch('o');
 
           } else if ((ev.code == KEY_KP6 || ev.code == KEY_6) && ev.value == 1) {
-            fading = DEFAULT_FADING;
+            g_fading = DEFAULT_FADING;
           } else if ((ev.code == KEY_KP7 || ev.code == KEY_7) && ev.value == 1) {
-            fading = FADING1;
+            g_fading = FADING1;
           } else if ((ev.code == KEY_KP8 || ev.code == KEY_8) && ev.value == 1) {
-            fading = FADING2;
+            g_fading = FADING2;
           } else if ((ev.code == KEY_KP9 || ev.code == KEY_9) && ev.value == 1) {
-            autoFading = autoFading == 1? 0 : 1;
+            g_autoFading = g_autoFading == 1? 0 : 1;
 
           } else if ((ev.code == KEY_KPMINUS || ev.code == KEY_MINUS) && ev.value == 1) {
-            concertPitch /= 2.0f;
+            voice_pitch /= 2.0f;
           } else if ((ev.code == KEY_KPDOT || ev.code == KEY_DOT) && ev.value == 1) {
-            concertPitch *= 2.0f;
+            voice_pitch *= 2.0f;
 
           } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1) {
-            sustain = 1;
+            g_sustain = 1;
           } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 0) {
-            sustain = 0;
+            g_sustain = 0;
 
           } else if (ev.code == KEY_ESC && ev.value == 1) {
-            keepRunning = 0;
+            g_keepRunning = 0;
             break;
           }
 
@@ -471,6 +445,10 @@ error:
   return NULL;
 }
 
+void handle_sig (int sig) {
+    g_keepRunning = 0;
+}
+
 
 int main (int argc, char *argv[])
 {
@@ -487,17 +465,20 @@ int main (int argc, char *argv[])
 
   */
 
-  autoFading = 0;
+  g_autoFading = 0;
+  g_keepRunning = 1;
+  g_sustain = 0;
+  
+  modus = SAW;
+  keyboard_dev = KEYBOARD_EVENT;
 
-  mode = SAW;
-  outputDeviceId = -1;
-  bufferSize = DEFAULT_BUFFER_SIZE;
-  fading = DEFAULT_FADING;
-  envelopeSamples = DEFAULT_ENVELOPE;
-  keybDev = DEFAULT_KEYB_EVENT;
-  sampleRate = DEFAULT_RATE;
+  g_outputDeviceId = -1;
+  g_bufferSize = DEFAULT_BUFFER_SIZE;
+  g_fading = DEFAULT_FADING;
+  g_envelopeSamples = DEFAULT_ENVELOPE;
+  g_sampleRate = DEFAULT_RATE;
 
-  sa.sa_handler = handleSig;
+  sa.sa_handler = handle_sig;
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
 
@@ -506,53 +487,53 @@ int main (int argc, char *argv[])
     fprintf(stderr, "\t%s hw:2,0,0 [sin|saw|sqr|tri|noi]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw [outputDeviceId]\n", argv[0]);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], bufferSize);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], bufferSize, fading);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [keypad]\n", argv[0], bufferSize, fading, envelopeSamples);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s [sampleRate]\n", argv[0], bufferSize, fading, envelopeSamples, keybDev);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s %d\n", argv[0], bufferSize, fading, envelopeSamples, keybDev, sampleRate);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], g_bufferSize);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], g_bufferSize, g_fading);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [keypad]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboard_dev);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboard_dev, g_sampleRate);
     return 1;
   }
   if (argc >= 3) {
     m = argv[2][1];
-    switchMode(m);
+    modus_switch(m);
   }
   if (argc >= 4) {
-    outputDeviceId = atoi(argv[3]);
+    g_outputDeviceId = atoi(argv[3]);
   }
   if (argc >= 5) {
-    bufferSize = atoi(argv[4]);
+    g_bufferSize = atoi(argv[4]);
   }
   if (argc >= 6) {
-    fading = atoi(argv[5]);
-    if (fading == 0) fading = 1;
+    g_fading = atoi(argv[5]);
+    if (g_fading == 0) g_fading = 1;
 
-    if (fading < 0) {
-      autoFading = 1;
-      fading *= -1;
+    if (g_fading < 0) {
+      g_autoFading = 1;
+      g_fading *= -1;
     }
   }
   if (argc == 7) {
-    envelopeSamples = atoi(argv[6]);
+    g_envelopeSamples = atoi(argv[6]);
   }
   if (argc >= 8) {
-    keybDev = argv[7];
+    keyboard_dev = argv[7];
   }
   if (argc == 9) {
-    sampleRate = atoi(argv[8]);
+    g_sampleRate = atoi(argv[8]);
   }
 
-  rngSeed((uint32_t)time(NULL));
+  pr_seed((uint32_t)time(NULL));
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL); 
 
-  while (keepRunning)
+  while (g_keepRunning)
   {
     midi_in = NULL;
     alsaerr = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
     if (alsaerr < 0)
     {
-      waiting(500);
+      tt_waiting(500);
       continue;
     }
     pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
@@ -561,7 +542,7 @@ int main (int argc, char *argv[])
     snd_rawmidi_drop(midi_in);
     snd_rawmidi_close(midi_in);
 
-    waiting(200);
+    tt_waiting(200);
   }
 
   return 0;

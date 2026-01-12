@@ -3,8 +3,8 @@
 
 typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
 
-extern volatile Modus mode;
+extern volatile Modus modus;
 
-void switchMode (char m);
+void modus_switch (char m);
 
 #endif

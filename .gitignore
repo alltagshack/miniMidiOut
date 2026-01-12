@@ -1,3 +1,4 @@
+
 .vscode/**/*
 
 build/**/*
@@ -7,7 +8,12 @@ miniMidiOut
 portaudio/**/*
 *.tgz
 
+.cache/**/*
 CMakeFiles/**/*
 CMakeCache.txt
 cmake_install.cmake
 Makefile
+
+# used by clangd vscode extension.
+# cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .
+compile_commands.json

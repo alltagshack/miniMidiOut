@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-void rngSeed (uint32_t seed);
-float rngFloat (void);
+void pr_seed (uint32_t seed);
+float pr_float (void);
 
 #endif
