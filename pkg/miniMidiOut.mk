@@ -5,17 +5,16 @@ MINIMIDIOUT_SITE_METHOD = local
 MINIMIDIOUT_DEPENDENCIES = portaudio
 
 define MINIMIDIOUT_BUILD_CMDS
-    $(TARGET_CC) \
-        -Wall \
-        $(@D)/miniMidiOut.c \
-        -o $(@D)/miniMidiOut \
-        $(TARGET_CFLAGS) \
-        $(TARGET_LDFLAGS) \
-        -lm -lportaudio -lasound -pthread
+    mkdir -p build && \
+    $(TARGET_CONFIGURE_OPTS) cmake -B build -S $(MINIMIDIOUT_SITE) \
+        -DCMAKE_INSTALL_PREFIX=$(TARGET_DIR) \
+        -DPORTAUDIO_INCLUDE_DIR=$(STAGING_DIR)/usr/include \
+        -DPORTAUDIO_LIBRARY=$(STAGING_DIR)/usr/lib/libportaudio.so && \
+    cmake --build build
 endef
 
 define MINIMIDIOUT_INSTALL_TARGET_CMDS
-    $(INSTALL) -D -m 0755 $(@D)/miniMidiOut $(TARGET_DIR)/usr/bin/miniMidiOut
+    cmake --build build --target install
 endef
 
 $(eval $(generic-package))

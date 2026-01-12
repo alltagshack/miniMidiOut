@@ -118,7 +118,7 @@ On debian or ubuntu you need these packages:
 - libasound-dev
 
 ```
-gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
+gcc main.c Modus.c PseudoRandom.c Timetools.c Voice.c -Wall -Iinclude/ -lm -lportaudio -lasound -pthread -o miniMidiOut
 ```
 
 ## Cmake alternative build
@@ -230,7 +230,8 @@ or
 ```
 make miniMidiOut-rebuild
 ```
-and then do a complete `make` again or just copy the new executable `output/build/miniMidiOut-1.0/miniMidiOut` to `/usr/bin/` on the sd-card.
+and then do a complete `make` again or just copy the new
+executable `output/target/usr/bin/` to `/usr/bin/` on the sd-card.
 
 ### Pi1 ramdisk
 

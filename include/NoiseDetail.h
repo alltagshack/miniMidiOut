@@ -1,5 +1,5 @@
-#ifndef _NOISE_DETAIL_H
-#define _NOISE_DETAIL_H 1
+#ifndef __NOISE_DETAIL_H
+#define __NOISE_DETAIL_H 1
 
 typedef struct {
   float lowpass_alpha;

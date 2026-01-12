@@ -1,7 +1,7 @@
 #include <alsa/asoundlib.h>
 #include <linux/input-event-codes.h>
-#include <math.h>
 #include <portaudio.h>
+#include <math.h>
 
 #include <pthread.h>
 
@@ -14,12 +14,14 @@
 #include <linux/input.h>
 #include <poll.h>
 
+#include "Modus.h"
 #include "NoiseDetail.h"
 #include "Voice.h"
+#include "PseudoRandom.h"
+#include "Timetools.h"
 
 /* 48000 44100 16000 11025 */
 #define DEFAULT_RATE           44100
-#define MAX_VOICES             16
 #define DEFAULT_BUFFER_SIZE    16
 
 #define FADING1                2
@@ -37,8 +39,6 @@
 
 #define DEFAULT_KEYB_EVENT     "/dev/input/event0"
 
-typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE, NOISE } Modus;
-
 int bufferSize;
 int fading;
 int sampleRate;
@@ -47,46 +47,10 @@ unsigned int envelopeSamples;
 int outputDeviceId;
 char *keybDev;
 
-static volatile Modus mode;
 static volatile int keepRunning = 1;
-static volatile int activeCount = 0;
 static volatile int sustain = 0;
-static volatile float concertPitch = 440.0f;
-
-Voice voices[MAX_VOICES];
-
-static uint32_t rng_state = 1;
-
-static inline void rngSeed (uint32_t seed) {
-  if (seed == 0) seed = 1;
-  rng_state = seed;
-}
-
-static inline float rngFloat (void) {
-  uint32_t x = rng_state;
-  x ^= x << 13;
-  x ^= x >> 17;
-  x ^= x << 5;
-  rng_state = x;
-  return (float)( (int32_t)x ) / (float)INT32_MAX;
-}
 
 void handleSig (int sig) { keepRunning = 0; }
-
-int waiting (unsigned int ms)
-{
-  struct timespec req = {0};
-  req.tv_sec  = 0;
-  req.tv_nsec = ms * 1000000;
-  if (nanosleep(&req, NULL) != 0) {
-    return 1;
-  }
-  return 0;
-}
-
-float midi2Freq (unsigned char *note) {
-  return concertPitch * powf(2.0f, (*note - 69) / 12.0f);
-}
 
 static int openKeyboard (const char *devpath)
 {
@@ -96,33 +60,6 @@ static int openKeyboard (const char *devpath)
         return -1;
     }
     return fd;
-}
-
-static unsigned int now (void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    /* (seconds * 1000) + (nanoseconds / 1 000 000) a 32‑Bit‑Overflow is ok */
-    return (unsigned int)(ts.tv_sec * 1000U + ts.tv_nsec / 1000000U);
-}
-
-Voice *getVoiceForNote () {
-  int i;
-  for (i = 0; i < MAX_VOICES; i++) {
-    if (voices[i].active == 0)
-      return &voices[i];
-  }
-  /* no non active voice found. we use voice 0! */
-  activeCount--;
-  return &voices[0];
-}
-
-Voice *findVoiceByFreq (float *freq) {
-  int i;
-  for (i = 0; i < MAX_VOICES; i++) {
-    if ((voices[i].active == 1) && voices[i].freq == *freq)
-      return &voices[i];
-  }
-  return NULL;
 }
 
 static int audioCallback (const void *inputBuffer, void *outputBuffer,
@@ -234,33 +171,6 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
   }
 
   return paContinue;
-}
-
-void switchMode (char m) {
-  if (m == '\0') {
-    if (mode == SINUS) m = 'a'; /* -> sAw */
-    if (mode == SAW) m = 'q'; /* -> sQuare */
-    if (mode == SQUARE) m = 'r'; /* -> tRiangle */
-    if (mode == TRIANGLE) m = 'o'; /* -> nOise */
-    if (mode == NOISE) m = 'i'; /* -> sInus */
-  }
-
-  if (m == 'i') {
-    printf("~~~~ sinus\n");
-    mode = SINUS;
-  } else if (m == 'a') {
-    printf("//// saw\n");
-    mode = SAW;
-  } else if (m == 'q') {
-    printf("_||_ square\n");
-    mode = SQUARE;
-  } else if (m == 'r') {
-    printf("/\\/\\ triangle\n");
-    mode = TRIANGLE;
-  } else if (m == 'o') {
-    printf("XXXX noise\n");
-    mode = NOISE;
-  }
 }
 
 PaError play (PaStream *stream, unsigned char status, unsigned char note, unsigned char vel)
