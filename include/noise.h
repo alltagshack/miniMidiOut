@@ -4,7 +4,9 @@
 #define NOISE_BASS_BOOST_FREQ  220.0f
 #define NOISE_BASS_BOOST_VALUE 8.0f
 
-typedef struct {
+struct Voice_s;
+
+typedef struct Noise_s {
   float lowpass_alpha;
 
   float lowpass_state;
@@ -21,5 +23,8 @@ typedef struct {
   float low_shelf_alpha;
   float low_shelf_gain;
 } Noise;
+
+void noise_prepare (struct Voice_s * const userData);
+float noise_filter (struct Voice_s * const voice);
 
 #endif

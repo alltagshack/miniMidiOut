@@ -6,7 +6,7 @@
 #define VOICE_MAX    16
 #define VOICE_PITCH 440.0f
 
-typedef struct {
+typedef struct Voice_s {
   double freq;
   float volume;
   double phase;

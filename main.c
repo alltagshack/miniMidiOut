@@ -22,20 +22,6 @@
 #include "keyboard.h"
 #include "globals.h"
 
-/* 48000 44100 16000 11025 */
-#define DEFAULT_RATE           44100
-#define DEFAULT_BUFFER_SIZE    16
-
-#define FADING1                2
-#define DEFAULT_FADING         10
-#define FADING2                60
-
-#define DEFAULT_ENVELOPE       16000
-#define ENVELOPE_MAX           0.35f
-
-#define SUSTAIN_MODESWITCH_MS  1500U
-#define SUSTAIN_NEEDED         3U
-
 static int audioCallback (const void *inputBuffer, void *outputBuffer,
                          unsigned long framesPerBuffer,
                          const PaStreamCallbackTimeInfo *timeInfo,
@@ -95,34 +81,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
             break;
           }
           case NOISE: {
-            float n = pr_float();
-
-            voices[j].noise_detail.lowpass_state +=
-              voices[j].noise_detail.lowpass_alpha * (n - voices[j].noise_detail.lowpass_state);
-
-            voices[j].noise_detail.highpass_state =
-              n - voices[j].noise_detail.lowpass_state;
-
-            voices[j].noise_detail.bandpass_state = voices[j].noise_detail.bandmix * (
-              n + 2.0f * voices[j].noise_detail.bandpass_state - voices[j].noise_detail.highpass_state
-            );
-
-            voices[j].noise_detail.low_shelf_state += voices[j].noise_detail.low_shelf_alpha * (
-              voices[j].noise_detail.low_shelf_gain * voices[j].noise_detail.lowpass_state -
-              voices[j].noise_detail.low_shelf_state
-            );
-
-            float filtered =
-              voices[j].noise_detail.lowpass_weight * voices[j].noise_detail.lowpass_state +
-              voices[j].noise_detail.bandpass_weight * voices[j].noise_detail.bandpass_state +
-              voices[j].noise_detail.highpass_weight * voices[j].noise_detail.highpass_state + (
-                1.0f - (
-                  voices[j].noise_detail.lowpass_weight +
-                  voices[j].noise_detail.bandpass_weight +
-                  voices[j].noise_detail.highpass_weight
-                )
-              ) * voices[j].noise_detail.low_shelf_state;
-            
+            float filtered = noise_filter(&voices[j]);
             sample += env * voices[j].volume * filtered;
             break;
           }
@@ -167,27 +126,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
     userData->volume = 0.7f * ((float)vel / 127.0f);
     userData->envelope = g_envelopeSamples;
 
-    if (modus == NOISE)
-    {
-      float lowcut_freq = 0.5f * freq;
-      userData->noise_detail.lowpass_alpha =
-        (2.0f * M_PI * lowcut_freq / g_sampleRate) /
-        (1.0f + 2.0f * M_PI * lowcut_freq / g_sampleRate);
-      
-      float c  = 1.0f / tanf(M_PI * freq / g_sampleRate);
-      userData->noise_detail.bandmix = 1.0f / (1.0f + c / 0.7f + c * c);
-      
-      userData->noise_detail.lowpass_weight = fmaxf(0.0f, 1.0f - freq / 2093.0f);
-      userData->noise_detail.bandpass_weight = fminf(1.0f, freq / 2093.0f);
-      userData->noise_detail.highpass_weight = 1.0f - userData->noise_detail.lowpass_weight;
-
-      /* bass boost */
-      float shelf_fc = fminf(NOISE_BASS_BOOST_FREQ, lowcut_freq);
-      float shelf_bw = 2.0f * M_PI * shelf_fc / g_sampleRate;
-      userData->noise_detail.low_shelf_alpha = shelf_bw / (1.0f + shelf_bw);
-      float boost_db = NOISE_BASS_BOOST_VALUE * fmaxf(0.0f, 1.0f - freq / 2093.0f);
-      userData->noise_detail.low_shelf_gain = powf(10.0f, boost_db / 20.0f);
-    }
+    if (modus == NOISE) noise_prepare(userData);
 
     if (Pa_IsStreamStopped(stream)) {
       PaError err = Pa_StartStream(stream);
@@ -270,18 +209,12 @@ void *midiReadThread (void *data)
   PaError err;
   PaStreamParameters params;
   int i;
-  int kbd_fd;
+
   int midi_count;
   struct pollfd *pfds;
   struct pollfd *all;
-  struct input_event ev;
   ssize_t n;
-
-  kbd_fd = keyboard_open();
-  if (kbd_fd < 0) {
-    printf("missing this letter keyboard as event device: %s\n", keyboard_dev);
-  }
-
+  
   midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
   pfds = calloc(midi_count, sizeof(struct pollfd));
   snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
@@ -293,11 +226,7 @@ void *midiReadThread (void *data)
     all[i] = pfds[i];
     all[i].events = POLLIN;
   }
-  if (kbd_fd >= 0) {
-    /* keyboard as last poll element */
-    all[midi_count].fd = kbd_fd;
-    all[midi_count].events = POLLIN;
-  }
+  keyboard_add_poll(all, midi_count);
 
   err = Pa_Initialize();
 
@@ -354,49 +283,8 @@ void *midiReadThread (void *data)
       goto out;
     }
 
-
-    if ((kbd_fd >= 0) && (all[midi_count].revents & POLLIN))
-    {
-      n = read(kbd_fd, &ev, sizeof(ev));
-      if (n == sizeof(ev) && ev.type == EV_KEY)
-      {
-          if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {
-            modus_switch('i');
-          } else if ((ev.code == KEY_KP2 || ev.code == KEY_2) && ev.value == 1) {
-            modus_switch('a');
-          } else if ((ev.code == KEY_KP3 || ev.code == KEY_3) && ev.value == 1) {
-            modus_switch('q');
-          } else if ((ev.code == KEY_KP4 || ev.code == KEY_4) && ev.value == 1) {
-            modus_switch('r');
-          } else if ((ev.code == KEY_KP5 || ev.code == KEY_5) && ev.value == 1) {
-            modus_switch('o');
-
-          } else if ((ev.code == KEY_KP6 || ev.code == KEY_6) && ev.value == 1) {
-            g_fading = DEFAULT_FADING;
-          } else if ((ev.code == KEY_KP7 || ev.code == KEY_7) && ev.value == 1) {
-            g_fading = FADING1;
-          } else if ((ev.code == KEY_KP8 || ev.code == KEY_8) && ev.value == 1) {
-            g_fading = FADING2;
-          } else if ((ev.code == KEY_KP9 || ev.code == KEY_9) && ev.value == 1) {
-            g_autoFading = g_autoFading == 1? 0 : 1;
-
-          } else if ((ev.code == KEY_KPMINUS || ev.code == KEY_MINUS) && ev.value == 1) {
-            voice_pitch /= 2.0f;
-          } else if ((ev.code == KEY_KPDOT || ev.code == KEY_DOT) && ev.value == 1) {
-            voice_pitch *= 2.0f;
-
-          } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1) {
-            g_sustain = 1;
-          } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 0) {
-            g_sustain = 0;
-
-          } else if (ev.code == KEY_ESC && ev.value == 1) {
-            g_keepRunning = 0;
-            break;
-          }
-
-        }
-    }
+    ret = keyboard_check_event(all, midi_count);
+    if (ret < 0) break;
 
     for (i = 0; i < midi_count; ++i)
     {
@@ -439,7 +327,6 @@ error:
     fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
 
   Pa_Terminate();
-  if (kbd_fd >= 0) close(kbd_fd);
   free(all);
   free(pfds);
   return NULL;
@@ -448,7 +335,6 @@ error:
 void handle_sig (int sig) {
     g_keepRunning = 0;
 }
-
 
 int main (int argc, char *argv[])
 {
@@ -470,7 +356,7 @@ int main (int argc, char *argv[])
   g_sustain = 0;
   
   modus = SAW;
-  keyboard_dev = KEYBOARD_EVENT;
+  char *keyboardDevice = KEYBOARD_EVENT;
 
   g_outputDeviceId = -1;
   g_bufferSize = DEFAULT_BUFFER_SIZE;
@@ -490,8 +376,8 @@ int main (int argc, char *argv[])
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], g_bufferSize);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], g_bufferSize, g_fading);
     fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [keypad]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboard_dev);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboard_dev, g_sampleRate);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice);
+    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice, g_sampleRate);
     return 1;
   }
   if (argc >= 3) {
@@ -517,7 +403,7 @@ int main (int argc, char *argv[])
     g_envelopeSamples = atoi(argv[6]);
   }
   if (argc >= 8) {
-    keyboard_dev = argv[7];
+    keyboardDevice = argv[7];
   }
   if (argc == 9) {
     g_sampleRate = atoi(argv[8]);
@@ -536,6 +422,8 @@ int main (int argc, char *argv[])
       tt_waiting(500);
       continue;
     }
+    keyboard_open(keyboardDevice);
+
     pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
     pthread_join(midi_read_thread, NULL);
     
@@ -543,6 +431,7 @@ int main (int argc, char *argv[])
     snd_rawmidi_close(midi_in);
 
     tt_waiting(200);
+    keyboard_close();
   }
 
   return 0;

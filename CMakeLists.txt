@@ -33,7 +33,7 @@ if(NOT MATH_LIBRARY)
 endif()
 
 add_executable(miniMidiOut
-    main.c modus.c pseudo_random.c time_tools.c voice.c keyboard.c)
+    main.c modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c globals.c)
 
 target_include_directories(miniMidiOut PRIVATE
     include)

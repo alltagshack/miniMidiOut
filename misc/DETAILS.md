@@ -74,7 +74,9 @@ On debian or ubuntu you need these packages:
 - libasound-dev
 
 ```
-gcc main.c modus.c pseudo_random.c time_tools.c voice.c keyboard.c -Wall -Iinclude/ -lm -lportaudio -lasound -pthread -o miniMidiOut
+gcc main.c \
+    modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c globals.c \
+    -Wall -Iinclude/ -lm -lportaudio -lasound -pthread -o miniMidiOut
 ```
 
 ## Cmake alternative build
