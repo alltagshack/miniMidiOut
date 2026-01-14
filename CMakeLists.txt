@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 project(miniMidiOut C)
 
 set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -Wall")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 
 find_library(PORTAUDIO_LIBRARY portaudio)
 if(NOT PORTAUDIO_LIBRARY)

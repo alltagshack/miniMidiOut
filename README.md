@@ -1,74 +1,23 @@
-# miniMidiOut (handmade poll)
+# miniMidiOut (handmade-polling branch)
 
-A "fast" midi input to audio output synthesizer with a delay of 20ms on Pi1.
+A "fast" midi input to audio output synthesizer with a delay between 70 - 120ms on Pi1.
+It is based on Buildroot and takes only 15sec to boot. The complete system
+runs from RAM. You do not need any display! Just plugin your USB Midi keyboard
+and power up the Pi1!
 
-## build
+## Features
 
-On debian or ubuntu you need these packages:
-
-- gcc
-- portaudio19-dev
-- libasound-dev
-
-```
-gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
-```
-
-### cmake alternative build
-
-```
-cmake -B .
-cmake --build .
-```
-
-## Usage
-
-Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
-
-### CLI
-
-For sinus wave:
-```
-miniMidiOut hw:2,0,0 sin
-```
-
-For saw sound effect:
-```
-miniMidiOut hw:2,0,0 saw
-```
-
-For square sound effect:
-```
-miniMidiOut hw:2,0,0 sqr
-```
-
-For triangle sound effect:
-```
-miniMidiOut hw:2,0,0 tri
-```
-
-`miniMidiOut` uses the default audio device for output. You can
-change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
-The default is used with `miniMidiOut hw:2,0,0 tri -1`.
-
-`miniMidiOut` has an optional 4th parameter for the buffer size. The default
-is 8. You can change this e.g. to 512 with `miniMidiOut hw:2,0,0 sin -1 512`.
-
-Quit the application with `CRTL + c`.
-
-### MIDI device
-
-You can toggle through the waveforms **sinus**, **saw**, **square** and **triangle**:
+You can toggle through the waveforms **saw**, **square**, **triangle** and **sinus**:
 
 - no sound should be played
-- you press the sustain pedal 3 times in 1.5 seconds
+- you press the sustain pedal 3 times during 1.5 seconds
 
-## buildroot package (Pi1)
+## Build sd-card via buildroot package (Pi1)
 
-Check out my code and uncompress `buildroot-2025.02.9.tar.gz`:
+Check out my code as `miniMidiOut-src` and get/uncompress `buildroot-2025.02.9.tar.gz`:
 
 ```
-git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
+git clone --branch handmade_polling https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
 ```
 
@@ -169,3 +118,57 @@ make miniMidiOut-rebuild
 ```
 and then do just `make` again and copy the new
 `output/images/rootfs.cpio.gz` to the sd-card.
+
+## Handmade build
+
+On debian or ubuntu you need these packages:
+
+- gcc
+- portaudio19-dev
+- libasound-dev
+
+```
+gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
+```
+
+### cmake alternative build
+
+```
+cmake -B .
+cmake --build .
+```
+
+## Usage
+
+Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
+
+### Command line interface
+
+For sinus wave:
+```
+miniMidiOut hw:2,0,0 sin
+```
+
+For saw sound effect:
+```
+miniMidiOut hw:2,0,0 saw
+```
+
+For square sound effect:
+```
+miniMidiOut hw:2,0,0 sqr
+```
+
+For triangle sound effect:
+```
+miniMidiOut hw:2,0,0 tri
+```
+
+`miniMidiOut` uses the default audio device for output. You can
+change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
+The default is used with `miniMidiOut hw:2,0,0 tri -1`.
+
+`miniMidiOut` has an optional 4th parameter for the buffer size. The default
+is 8. You can change this e.g. to 512 with `miniMidiOut hw:2,0,0 sin -1 512`.
+
+Quit the application with `CRTL + c`.
