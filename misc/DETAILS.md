@@ -86,19 +86,23 @@ cmake -B .
 cmake --build .
 ```
 
-## Build SD-Card via buildroot (Pi1)
+## Build sd-card via buildroot package (Pi1)
 
-Check out my code and uncompress `buildroot-2025.02.9.tar.gz`:
+Check out my code as `miniMidiOut-src` and get/uncompress `buildroot-2025.02.9.tar.gz`:
 
 ```
 git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
 ```
 
-use the `cmdline.txt` from my code:
+Use the `cmdline.txt` and `config.txt` from my code:
 ```
 cp miniMidiOut-src/pi1/cmdline.txt buildroot-2025.02.9/board/raspberrypi/cmdline.txt
+cp miniMidiOut-src/pi1/config.txt buildroot-2025.02.9/board/raspberrypi/config_default.txt
 ```
+
+Look into `buildroot-2025.02.9/board/raspberrypi/genimage.cfg.in` and
+change `size = 32M` into `size = 61M`.
 
 Copy `pkg/` to buildroot packages:
 ```
@@ -121,13 +125,7 @@ Make this executeable:
 chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99miniMidiOut
 ```
 
-add 2 lines into `board/raspberrypi/config_default.txt`:
-```
-echo "dtparam=audio=on" >>board/raspberrypi/config_default.txt
-echo "dtoverlay=vc4-kms-v3d" >>board/raspberrypi/config_default.txt
-```
-
-make a default pi1 config and start menuconfig:
+Make a default pi1 config and start menuconfig:
 ```
 unset LD_LIBRARY_PATH
 make raspberrypi_defconfig
@@ -163,20 +161,27 @@ Select/set this:
 - Kernel
   - build devicetree with overlay support
 
-save as `.config`.
-
-**Maybe** you have to select `Device Drivers: Sound card support`
-in the kernel via `make linux-menuconfig`. Alternative: use `miniMidiOut-src/pi1/kernel-config.txt` as `output/build/linux-custom/.config`
+Save as `.config`.
 
 then do:
 ```
 make
 ```
 
-Write image to sd-card on e.g. `/dev/mmcblk0`:
-```
-sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
-```
+### Pi1 ramdisk
+
+The upper description creates a `rootfs.cpio.gz` with the complete root filesystem.
+You can use this file instead of an ext4 root filesystem on your sd-card.
+The system will work in a copy of that filesystem, which is placed in
+the RAM. The system will never write something (back) to the sd-card!
+
+- make a single msdos/fat32 partition (minimum 53MB) on your sd-card
+- copy to that partition...
+  - the 4 `output/images/bcm2708*` files
+  - the file `output/images/rootfs.cpio.gz`
+  - the linux kernel `output/images/zImage`
+  - the content of `output/images/rpi-firmware/`
+- do not forget to copy the `overlays` folder inside `output/images/rpi-firmware/`
 
 ### Hints for buildroot
 
@@ -188,27 +193,8 @@ or
 ```
 make miniMidiOut-rebuild
 ```
-and then do a complete `make` again or just copy the new
-executable `output/target/usr/bin/` to `/usr/bin/` on the sd-card.
-
-### Pi1 ramdisk
-
-Similar to the normal way to build a sd-card image, there is a 2nd one.
-The upper description creates a `rootfs.cpio.gz` with the complete root filesystem.
-You can use this file instead of an ext4 root filesystem on your sd-card.
-The system will work in a copy of that filesystem, which is placed in
-the RAM. The system will never write something (back) to the sd-card!
-
-- make a single msdos/fat32 partition (minimum 62MB) on your sd-card
-- copy to that partition...
-  - the 4 `output/images/bcm2708*` files
-  - the file `output/images/rootfs.cpio.gz`
-  - the linux kernel `output/images/zImage`
-  - the content of `output/images/rpi-firmware/`
-    - uncomment the line `initramfs rootfs.cpio.gz` in `config.txt`
-    - change `root=/dev/mmcblk0p2` into `root=/dev/ram0` in `cmdline.txt`
-- do not forget to copy the `overlays` folder inside `output/images/rpi-firmware/`
-
+and then do just `make` again and copy the new
+`output/images/rootfs.cpio.gz` to the sd-card.
 
 
 

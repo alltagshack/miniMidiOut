@@ -5,6 +5,7 @@
 Voice voices[VOICE_MAX];
 volatile int voice_active = 0;
 volatile float voice_pitch = VOICE_PITCH;
+volatile float voice_pitchbend = 0.0f;
 
 Voice *voice_get () {
   int i;

@@ -90,7 +90,9 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
             sample += env * voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
         }
 
-        voices[j].phase += voices[j].freq / g_sampleRate;
+        voices[j].phase += (
+          voices[j].freq * powf(2.0f, voice_pitchbend * VOICE_PITCHBEND_RANGE)
+        ) / g_sampleRate;
         if (voices[j].phase >= 1.0f) {
           voices[j].phase -= 1.0f;
         }
@@ -113,12 +115,14 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
   static unsigned int start_ms = 0;
   static unsigned int now_ms = 0;
   static int old_sustain = 0;
+  float freq;
+  Voice *userData;
 
   if ((status & 0xF0) == 0x90 && vel > 0) {
-    float freq = voice_midi2freq(&note);
+    freq = voice_midi2freq(&note);
     printf("%.2f Hz (%d)\n", freq, vel);
 
-    Voice *userData = voice_get();
+    userData = voice_get();
 
     voice_active++;
     userData->active = (g_autoFading == 1)? 2 : 1;
@@ -170,14 +174,65 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
 
     /* release a tone */
 
-    float freq = voice_midi2freq(&note);
-    Voice *v = voice_find_by_freq(&freq);
-    if (v) {
-      v->active = 2;
+    freq = voice_midi2freq(&note);
+    userData = voice_find_by_freq(&freq);
+    if (userData) {
+      userData->active = 2;
     }
   }
 
   return paNoError;
+}
+
+static unsigned char running_status = 0;
+static unsigned char data1 = 0;
+static int expecting = 0;
+
+PaError midi_parse_byte (unsigned char b, PaStream *stream)
+{
+    PaError err = paNoError;
+
+    /* Status byte? */
+    if (b & 0x80) {
+        running_status = b;
+        expecting = 1;
+        return err;
+    }
+
+    /* Data byte */
+    if (expecting == 1) {
+        data1 = b;
+        expecting = 2;
+        return err;
+    }
+
+    if (expecting == 2) {
+        unsigned char status = running_status & 0xF0;
+        unsigned char channel = running_status & 0x0F;
+        unsigned char note = data1;
+        unsigned char vel = b;
+
+        /* NOTE ON */
+        if (status == 0x90 && vel > 0) {
+            err = play(stream, 0x90 | channel, note, vel);
+        }
+
+        /* NOTE OFF */
+        else if (status == 0x80 || (status == 0x90 && vel == 0)) {
+            err = play(stream, 0x80 | channel, note, vel);
+        }
+
+        /* SUSTAIN PEDAL */
+        else if (status == 0xB0 && note == 0x40) {
+            err = play(stream, 0xB0 | channel, note, vel);
+        }
+        else if (status == 0xE0) {
+          int value = (vel << 7) | data1;
+          voice_pitchbend = ((float)value - 8192.0f) / 8192.0f;
+        }
+        expecting = 1; /* ready for next event */
+    }
+    return err;
 }
 
 static PaError _theme (PaStream *stream)
@@ -205,7 +260,7 @@ static PaError _theme (PaStream *stream)
 
 void *midiReadThread (void *data)
 {
-    unsigned char midi_buf[3];
+    unsigned char midi_buf[32];
     PaStream *stream;
     PaError err;
     PaStreamParameters params;
@@ -215,12 +270,14 @@ void *midiReadThread (void *data)
     int midi_count;
     int epoll_fd;
     struct epoll_event *events;
+    struct pollfd *pfds;
+    ssize_t n,j;
 
     midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
     
     events = calloc(midi_count + 1, sizeof(struct epoll_event));
     
-    struct pollfd *pfds = calloc(midi_count, sizeof(struct pollfd));
+    pfds = calloc(midi_count, sizeof(struct pollfd));
     snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
 
     epoll_fd = epoll_create1(0);
@@ -288,12 +345,13 @@ void *midiReadThread (void *data)
             }
 
             if (events[i].events & EPOLLIN) {
-                ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
+                n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
 
                 if (n > 0) {
-                    err = play(stream, midi_buf[0], midi_buf[1], midi_buf[2]);
+                  for (j = 0; j < n; ++j) {
+                    err = midi_parse_byte(midi_buf[j], stream);
                     if (err) goto error;
-
+                  }
                 } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
                     goto out;
                 }
@@ -335,6 +393,7 @@ int main (int argc, char *argv[])
   char m = '\0';
   struct sigaction sa;
   snd_rawmidi_t *midi_in;
+  snd_rawmidi_params_t *params;
   int alsaerr;
 
   /* only if root start. only senseful on PREEMPT_RT linux.
@@ -415,6 +474,11 @@ int main (int argc, char *argv[])
       tt_waiting(500);
       continue;
     }
+    snd_rawmidi_params_alloca(&params);
+    snd_rawmidi_params_current(midi_in, params);
+    snd_rawmidi_params_set_avail_min(midi_in, params, 1);
+    snd_rawmidi_params_set_buffer_size(midi_in, params, 2);
+
     keyboard_open(keyboardDevice);
 
     pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);

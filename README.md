@@ -51,6 +51,10 @@ Change octave:
 
 ## Feature (MIDI keyboard)
 
+- velocity
+- pitch bend
+- sustain pedal
+
 Switch through the waveforms **saw**, **square**, **triangle**, **noise** and **sinus**:
 
 - no sound should be played
