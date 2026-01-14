@@ -1,32 +1,25 @@
-# miniMidiOut
+# miniMidiOut (epoll version)
 
 A "fast" midi input to audio output synthesizer with 5 popular waveforms.
 
-Messurement on Pi1 (it is not realy realtime): delay between key press and audio out is *70ms*
+Messurement on **modern Laptop**: delay between key press and audio out is *20ms*
 
 ## Usage
 
 You can use (and build) the command line interface (CLI) `miniMidiOut` on many Linux systems. It does not use a realtime linux-kernel.
 
-An alternative way via [Release Files](https://github.com/no-go/miniMidiOut/releases):
+## Build
 
-- use my Pi1 sd-card content (just a single FAT32 partition is needed)
-- use my sd-card image for the eeepc 4G 701 (32bit Pentium, BIOS boot)
+On debian or ubuntu you need these packages:
 
-With these files/images the system boots a minimal Linux and starts `miniMidiOut` via `/etc/init.d/S99miniMidiOut`.
+- gcc
+- portaudio19-dev
+- libasound-dev
 
-![use-case](misc/usecase.png)
-
-1. plugin sd-card
-2. plugin MIDI USB keyboard
-3. if the MIDI USB keyboard has its own power button: power on!
-4. optional: plugin an USB alphanumeric keyboard
-5. plugin your headphones to the analog audio
-   - pi1: Attention! There is a 4th connection for analog video in the 3.5mm hole :-S
-6. power on the Pi1 (or eeepc)
-7. wait 16 seconds until 3 tones comes up
-8. **enjoy classic synthesizer sounds from the 80th !**
-9. power off the Pi1 (or eeepc)
+```
+cmake -B .
+cmake --build .
+```
 
 ## Features (alphanumeric keyboard)
 
@@ -56,13 +49,65 @@ Switch through the waveforms **saw**, **square**, **triangle**, **noise** and **
 - no sound should be played
 - you press the sustain pedal 3 times in 1.5 seconds
 
-[Listen to the Audio File](https://raw.githubusercontent.com/no-go/miniMidiOut/refs/heads/main/misc/example.mp3)
+## Start it
 
-## Bugs
+Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
 
-On pi1: hotplug (out) the midi keyboard gives a "urb status -32". If you add `dwc_otg.speed=1` to
-the `cmdline.txt`, it is a fix, but a USB keyboad/numpad will not work.
+Add YOURSELF to the input group. The code uses a letter keyboard or usb numpad, if it exists.
 
-## Details
+```
+sudo add usermod -aG input YOURSELF
+```
 
-See [this file](misc/DETAILS.md) for more details to build and use `miniMidiOut`.
+After logout and relogin YOURSELF you and `miniMidiOut` have the right to access keypad events (`/dev/input/event0`).
+
+For sinus wave similar to a bell or flute:
+```
+miniMidiOut hw:2,0,0 sin
+```
+
+For saw sound effect. It is the synth-sound from the 80th and similar to a spinet:
+```
+miniMidiOut hw:2,0,0 saw
+```
+
+For square sound effect similar to 8bit arcade game from the 80th:
+```
+miniMidiOut hw:2,0,0 sqr
+```
+
+For triangle sound effect similar to a cheap electric doorbell or gong:
+```
+miniMidiOut hw:2,0,0 tri
+```
+
+For noise sound effect similar to wind, ocean waves or percussion:
+```
+miniMidiOut hw:2,0,0 noi
+```
+
+After starting `miniMidiOut` with success, it plays 3 tones as startup theme.
+
+`miniMidiOut` uses the default audio device for output. You can
+change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
+The default is used with `miniMidiOut hw:2,0,0 tri -1`.
+
+`miniMidiOut` has an optional 4th parameter for the buffer size. The default
+is `16` and works well on Pi1. You can change the buffer e.g. to `512`
+with `miniMidiOut hw:2,0,0 sin -1 512` if you want.
+
+There is an optional 5th parameter form `-20` to `100` (fade). A negative value
+fades the sound of a key out WHILE it is pressed. With a value of `-20` this
+sound is extreme short! Values form `0` to `100` changes the fade out AFTER the
+key is released. The default is `10`.
+
+You can set the envelope with a 6th optional parameter. The default value is `16000` and
+results in tone, where the first 16000 samples are a bit louder.
+
+An optional 7th parameter is `/dev/input/event0` as default. It is used to set the event
+device, which detects a pressed key on the Numpad.
+
+You can set the samplerate with a 8th optional parameter. The default value is `44100`.
+Some values may not work on your sound system an it will fall back to its own defaults.
+
+Quit the application with `CRTL + c` or `ESC`.
