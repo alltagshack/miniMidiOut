@@ -4,7 +4,7 @@
 /* close */
 #include <unistd.h>
 #include <linux/input.h>
-#include <poll.h>
+#include <sys/epoll.h>
 #include "keyboard.h"
 
 #include "modus.h"
@@ -21,15 +21,6 @@ void keyboard_open (char *dev)
     }
 }
 
-void keyboard_add_poll (struct pollfd *all, unsigned int id)
-{
-    if (_fd >= 0) {
-        /* keyboard as last poll element */
-        all[id].fd = _fd;
-        all[id].events = POLLIN;
-    }
-}
-
 void keyboard_close (void)
 {
     if (_fd >= 0) {
@@ -37,12 +28,22 @@ void keyboard_close (void)
     }
 }
 
-int keyboard_check_event (struct pollfd *all, unsigned int id)
+void keyboard_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd)
 {
-   if ((_fd >= 0) && (all[id].revents & POLLIN))
+    if (_fd >= 0) {
+        /* keyboard as last poll element */
+        all[id].events = EPOLLIN; 
+        all[id].data.fd = _fd;
+        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _fd, &all[id]);
+    }
+}
+
+int keyboard_check_event (struct epoll_event *all, unsigned int id)
+{
+   if ((_fd >= 0) && (all[id].events & EPOLLIN))
     {
         struct input_event ev;
-        ssize_t n = read(_fd, &ev, sizeof(ev));
+        ssize_t n = read(all[id].data.fd, &ev, sizeof(ev));
         if (n == sizeof(ev) && ev.type == EV_KEY)
         {
             if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {

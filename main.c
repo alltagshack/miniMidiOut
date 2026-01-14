@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <linux/input.h>
 #include <poll.h>
+#include <sys/epoll.h>
 
 #include "modus.h"
 #include "noise.h"
@@ -204,132 +205,124 @@ static PaError _theme (PaStream *stream)
 
 void *midiReadThread (void *data)
 {
-  unsigned char midi_buf[3];
-  PaStream *stream;
-  PaError err;
-  PaStreamParameters params;
-  int i;
+    unsigned char midi_buf[3];
+    PaStream *stream;
+    PaError err;
+    PaStreamParameters params;
+    int i;
+    int ret1, ret2;
 
-  int midi_count;
-  struct pollfd *pfds;
-  struct pollfd *all;
-  ssize_t n;
-  
-  midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
-  pfds = calloc(midi_count, sizeof(struct pollfd));
-  snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
+    int midi_count;
+    int epoll_fd;
+    struct epoll_event *events;
 
-  all = calloc(midi_count + 1, sizeof(struct pollfd));
+    midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
+    
+    events = calloc(midi_count + 1, sizeof(struct epoll_event));
+    
+    struct pollfd *pfds = calloc(midi_count, sizeof(struct pollfd));
+    snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
 
-  /* copy midi pfds */
-  for (i = 0; i < midi_count; ++i) {
-    all[i] = pfds[i];
-    all[i].events = POLLIN;
-  }
-  keyboard_add_poll(all, midi_count);
-
-  err = Pa_Initialize();
-
-  if (err != paNoError)
-    goto error;
-
-  if (g_outputDeviceId >= 0) {
-    params.device = g_outputDeviceId;
-    params.channelCount = 2;
-    params.sampleFormat = paFloat32;
-    params.suggestedLatency = Pa_GetDeviceInfo(g_outputDeviceId)->defaultLowOutputLatency;
-    params.hostApiSpecificStreamInfo = NULL;
-
-    err = Pa_OpenStream(
-      &stream,
-      NULL,
-      &params,
-      g_sampleRate,
-      g_bufferSize,
-      paClipOff,
-      audioCallback,
-      NULL
-    );
-  } else {
-    err = Pa_OpenDefaultStream(
-      &stream, 0, 2, paFloat32, g_sampleRate,
-      g_bufferSize, audioCallback, NULL
-    );
-  }
-  if (err != paNoError)
-    goto error;
-
-  err = _theme(stream);
-  if (err != paNoError)
-    goto error;
-  
-
-  while (g_keepRunning)
-  {
-    if (voice_active < 1 && Pa_IsStreamActive(stream)) {
-      voice_active = 0;
-      err = Pa_StopStream(stream);
-      if (err != paNoError) {
-        goto error;
-      }
+    epoll_fd = epoll_create1(0);
+    if (epoll_fd == -1) {
+        perror("epoll_create");
+        free(pfds);
+        free(events);
+        return NULL;
     }
 
-    int ret = poll(all, midi_count + 1, 200);
-    if (ret < 0) {
-      if (errno == EINTR) {
-        continue;
-      }
-      fprintf(stderr, "error poll\n");
-      goto out;
-    }
-
-    ret = keyboard_check_event(all, midi_count);
-    if (ret < 0) break;
-
-    for (i = 0; i < midi_count; ++i)
-    {
-      if (all[i].revents & (POLLERR | POLLHUP | POLLNVAL)) {
-        goto out;
-      }
-
-      if (all[i].revents & POLLIN) {
-
-        n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
-
-        if (n > 0) {
-          err = play(stream, midi_buf[0], midi_buf[1], midi_buf[2]);
-          if (err) goto error;
-
-        } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
-          goto out;
+    // Registriere alle MIDI-FD beim epoll
+    for (i = 0; i < midi_count; ++i) {
+        events[i].events = EPOLLIN;
+        events[i].data.fd = pfds[i].fd; // nur fd speichern
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, pfds[i].fd, &events[i]) == -1) {
+            perror("epoll_ctl: add");
+            free(pfds);
+            free(events);
+            close(epoll_fd);
+            return NULL;
         }
-      }
+    }
 
-    } /* end for midi polls */
+    keyboard_add_poll(events, midi_count, epoll_fd);
+    
+    err = Pa_Initialize();
+    if (err != paNoError) goto error;
 
-  } /* end while */
+    if (g_outputDeviceId >= 0) {
+        params.device = g_outputDeviceId;
+        params.channelCount = 2;
+        params.sampleFormat = paFloat32;
+        params.suggestedLatency = Pa_GetDeviceInfo(g_outputDeviceId)->defaultLowOutputLatency;
+        params.hostApiSpecificStreamInfo = NULL;
 
-  printf("quitting...\n");
+        err = Pa_OpenStream(&stream, NULL, &params, g_sampleRate, g_bufferSize, paClipOff, audioCallback, NULL);
+    } else {
+        err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, g_sampleRate, g_bufferSize, audioCallback, NULL);
+    }
+    
+    if (err != paNoError) goto error;
+
+    err = _theme(stream);
+    if (err != paNoError) goto error;
+
+    while (g_keepRunning) {
+        if (voice_active < 1 && Pa_IsStreamActive(stream)) {
+            voice_active = 0;
+            err = Pa_StopStream(stream);
+            if (err != paNoError) goto error;
+        }
+
+        ret1 = epoll_wait(epoll_fd, events, midi_count + 1, 200);
+        if (ret1 < 0) {
+            perror("epoll_wait");
+            goto out;
+        }
+
+        ret2 = keyboard_check_event(events, midi_count);
+        if (ret2 < 0) break;
+
+        for (i = 0; i < ret1; ++i) {
+            if (events[i].events & (EPOLLERR | EPOLLHUP)) {
+                goto out;
+            }
+
+            if (events[i].events & EPOLLIN) {
+                ssize_t n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
+
+                if (n > 0) {
+                    err = play(stream, midi_buf[0], midi_buf[1], midi_buf[2]);
+                    if (err) goto error;
+
+                } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
+                    goto out;
+                }
+            }
+        } /* end for midi polls */
+
+    } /* end while */
+
+    printf("quitting...\n");
 
 out:
-  snd_rawmidi_drop((snd_rawmidi_t *)data);
+    snd_rawmidi_drop((snd_rawmidi_t *)data);
 
-  if (Pa_IsStreamActive(stream)) {
-    err = Pa_StopStream(stream);
-    if (err != paNoError)
-      goto error;
-  }
+    if (Pa_IsStreamActive(stream)) {
+        err = Pa_StopStream(stream);
+        if (err != paNoError) goto error;
+    }
 
-  err = Pa_CloseStream(stream);
+    err = Pa_CloseStream(stream);
 
 error:
-  if (err != paNoError) 
-    fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
+    if (err != paNoError) 
+        fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
 
-  Pa_Terminate();
-  free(all);
-  free(pfds);
-  return NULL;
+    Pa_Terminate();
+    free(events);
+    free(pfds);
+    close(epoll_fd); // Schließe epoll FD
+    return NULL;
 }
 
 void handle_sig (int sig) {
