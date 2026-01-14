@@ -7,7 +7,7 @@ Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (
 Add YOURSELF to the input group. The code uses a letter keyboard or usb numpad, if it exists.
 
 ```
-sudo add usermod -aG input YOURSELF
+sudo usermod -aG input YOURSELF
 ```
 
 After logout and relogin YOURSELF you and `miniMidiOut` have the right to access keypad events (`/dev/input/event0`).
