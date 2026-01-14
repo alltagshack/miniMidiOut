@@ -209,6 +209,7 @@ cp ../miniMidiOut-src/eeepc_4G_701/post-build.sh board/qemu/x86/post-build.sh
 cp ../miniMidiOut-src/eeepc_4G_701/genimage.cfg board/qemu/x86/genimage.cfg
 cp ../miniMidiOut-src/eeepc_4G_701/syslinux.cfg board/qemu/x86/syslinux.cfg
 make qemu_x86_defconfig
+cp ../miniMidiOut-src/eeepc_4G_701/buildroot-2025.02.9-config.txt .config
 make menuconfig
 ```
 
@@ -240,6 +241,8 @@ make linux-menuconfig
       - <*> USB Audio/MIDI driver
         - [*] MIDI 2.0 support by USB Audio driver
     - <*> Sequencer support
+
+or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-6.12.27/.config`
 
 ### Debugging
 
