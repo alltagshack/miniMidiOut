@@ -146,6 +146,7 @@ Select/set this:
 - Filesystem images:
   - cpio the root filesystem
     - compression method (gzip)
+  - deselct ext2/3/4
 - Target packages: Hardware handling
   - evtest
   - firmware
@@ -202,68 +203,48 @@ and then do just `make` again and copy the new
 
 ## Build SD-Card via buildroot (eeepc)
 
-**description is not ready** !!!!!!!!!!!!!
-
-- overlay `../miniMidiOut-src/eeepc_4G_701/rootfs-overlay`
-
 ```
+unset LD_LIBRARY_PATH
+cp ../miniMidiOut-src/eeepc_4G_701/post-build.sh board/qemu/x86/post-build.sh
+cp ../miniMidiOut-src/eeepc_4G_701/genimage.cfg board/qemu/x86/genimage.cfg
+cp ../miniMidiOut-src/eeepc_4G_701/syslinux.cfg board/qemu/x86/syslinux.cfg
 make qemu_x86_defconfig
 make menuconfig
-  - Target options
-    - Target Architecture: x86
-    - Target Architecture Variant: i586   (or i486)
 ```
 
-### Kernel-Konfiguration (Treiber)
+- Target options
+  - Target Architecture: x86
+  - Target Architecture Variant: i586   (or i486)
+- System configuration
+  - () Root filesystem overlay directories:
+    set to `../miniMidiOut-src/eeepc_4G_701/rootfs-overlay`
+  - Custom scripts to run before creating filesystem images:
+    set to `board/qemu/x86/post-build.sh`
+- host utilities
+  - host genimage
+- bootloaders
+  - syslinux
+    - mbr
 
-Du musst sicherstellen, dass der passende Sound-Treiber fest im Kernel eingebaut ist (oder als Modul geladen wird).
+```
+make linux-menuconfig
+```
 
-Führe `make linux-menuconfig` aus.
+- Device Drivers: Sound card support
+  - <*> Advanced Linux Sound Architecture
+    - HD Audio
+      - <*> HD Audio PCI
+      - [*] Build hwdep interface for HD-audio driver
+      - <*> Build Realtek HD-audio codec support
+    - [*] USB sound devices
+      - <*> USB Audio/MIDI driver
+        - [*] MIDI 2.0 support by USB Audio driver
+    - <*> Sequencer support
 
-Navigiere zu: `Device Drivers: Sound card support`.
-
-Aktiviere Advanced Linux Sound Architecture (ALSA).
-
-Gehe in den Unterpunkt PCI sound devices.
-
-Aktiviere Intel HD Audio (CONFIG_SND_HDA_INTEL). Dies ist der Standard-Treiber
-für fast alle EeePC-Modelle (701, 900, 1000).
-
-Device Drivers: Sound card support: Advanced Linux Sound Architecture:
-
-- <*> HD Audio PCI
-- [*] Build hwdep interface for HD-audio driver
-- <*> Build Realtek HD-audio codec support
-
-Device Drivers: Sound card support: Advanced Linux Sound Architecture: USB sound devices:
-
-- <*> USB Audio/MIDI driver
-- [*] MIDI 2.0 support by USB Audio driver (?)
-
-Achte darauf, dass auch die Codecs aktiviert sind (meist Realtek oder Generic).
-
-Speichere und verlasse das Menü.
-
-### Firmware (Wichtig für spätere Modelle)
-
-Manche EeePC-Modelle benötigen spezielle Firmware-Dateien für den Soundchip.
-Gehe in make menuconfig zu Target packages -> Hardware handling -> Firmware.
-Prüfe, ob dort Pakete wie alsa-firmware verfügbar sind
-(oft für die i386-EeePCs nicht nötig, aber ein guter Check).
-
-### Fehlersuche auf dem EeePC
-
-Wenn du auf dem laufenden System bist, prüfe mit diesem Befehl, ob
-der Treiber geladen wurde:
+### Debugging
 
 ```
 lsmod | grep snd
 ls /dev/snd
 dmesg | grep -i audio
 ```
-Wenn die Liste leer ist, wurde der Treiber nicht geladen
-(oder nicht fest in den Kernel eingebaut). Wenn `dmesg | grep -i audio` Fehlermeldungen
-zeigt, fehlt wahrscheinlich die Firmware.
-Tipp: Da du `isolinux` nutzt, stelle sicher, dass du nach den
-Kernel-Änderungen `make linux-update-savedefconfig` und `make` das
-neue `bzImage` auf deine SD-Karte kopierst!
