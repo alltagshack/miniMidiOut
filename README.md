@@ -1,7 +1,6 @@
-# midiSynth
+# miniMidiOut (handmade poll)
 
-A fast midi input to audio output synthesizer with a delay of
-70 - 120ms on Pi1.
+A "fast" midi input to audio output synthesizer with a delay of 20ms on Pi1.
 
 ## build
 
@@ -12,7 +11,7 @@ On debian or ubuntu you need these packages:
 - libasound-dev
 
 ```
-gcc midiSynth.c -Wall -lm -lportaudio -lasound -pthread -o midiSynth
+gcc miniMidiOut.c -Wall -lm -lportaudio -lasound -pthread -o miniMidiOut
 ```
 
 ### cmake alternative build
@@ -30,85 +29,74 @@ Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (
 
 For sinus wave:
 ```
-midiSynth hw:2,0,0 sin
+miniMidiOut hw:2,0,0 sin
 ```
 
 For saw sound effect:
 ```
-midiSynth hw:2,0,0 saw
+miniMidiOut hw:2,0,0 saw
 ```
 
 For square sound effect:
 ```
-midiSynth hw:2,0,0 sqr
+miniMidiOut hw:2,0,0 sqr
 ```
 
 For triangle sound effect:
 ```
-midiSynth hw:2,0,0 tri
+miniMidiOut hw:2,0,0 tri
 ```
 
-`midiSynth` uses the default audio device for output. You can
-change this e.g. `hw:1` with an optional 3rd `midiSynth hw:2,0,0 sin 1`.
-The default is used with `midiSynth hw:2,0,0 tri -1`.
+`miniMidiOut` uses the default audio device for output. You can
+change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
+The default is used with `miniMidiOut hw:2,0,0 tri -1`.
 
-`midiSynth` has an optional 4th parameter for the buffer size. The default
-is 8. You can change this e.g. to 512 with `midiSynth hw:2,0,0 sin -1 512`.
+`miniMidiOut` has an optional 4th parameter for the buffer size. The default
+is 8. You can change this e.g. to 512 with `miniMidiOut hw:2,0,0 sin -1 512`.
 
 Quit the application with `CRTL + c`.
 
 ### MIDI device
 
-The *change instrument* buttons on your keyboard
-should toggle through
-the modes **sinus**, **saw**, **square** and **triangle**.
-
-An alternative way to switch the mode:
+You can toggle through the waveforms **sinus**, **saw**, **square** and **triangle**:
 
 - no sound should be played
 - you press the sustain pedal 3 times in 1.5 seconds
 
-## buildroot mods
+## buildroot package (Pi1)
 
-copy `pkg/` to buildroot packages:
+Check out my code and uncompress `buildroot-2025.02.9.tar.gz`:
+
 ```
-mkdir -p buildroot-2025.02.9/package/midisynth
-cp midisynth-src/pkg/* buildroot-2025.02.9/package/midisynth/
+git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
+tar -xzf buildroot-2025.02.9.tar.gz
 ```
 
-change to buildroot:
+use the `cmdline.txt` and `config.txt` from my code:
+```
+cp miniMidiOut-src/pi1/cmdline.txt buildroot-2025.02.9/board/raspberrypi/cmdline.txt
+cp miniMidiOut-src/pi1/config.txt buildroot-2025.02.9/board/raspberrypi/config_default.txt
+```
+
+Copy `pkg/` to buildroot packages:
+```
+mkdir -p buildroot-2025.02.9/package/miniMidiOut
+cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/miniMidiOut/
+```
+
+Change into buildroot:
 ```
 cd buildroot-2025.02.9/
 ```
 
-add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
+Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
-	source "package/midisynth/Config.in"
-```
-
-make a `init.d` dir as overlay:
-```
-mkdir -p board/raspberrypi/rootfs-overlay/etc/init.d
+	source "package/miniMidiOut/Config.in"
 ```
 
-for an autostart add a file `board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth`:
+Make this executeable:
 ```
-#!/bin/sh
-modprobe snd-bcm2835
-modprobe snd-usb-audio
-modprobe snd-seq-midi
-midiSynth hw:2,0,0 saw &
-```
-
-make it executeable:
-```
-chmod +x board/raspberrypi/rootfs-overlay/etc/init.d/S99midisynth
-```
-
-add 2 lines into `board/raspberrypi/config_default.txt`:
-```
-echo "dtparam=audio=on" >>board/raspberrypi/config_default.txt
-echo "dtoverlay=vc4-kms-v3d" >>board/raspberrypi/config_default.txt
+chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99miniMidiOut
 ```
 
 make a default pi1 config and start menuconfig:
@@ -128,37 +116,56 @@ Select/set this:
     - amixer
     - aplay
     - aseqdump
-  - midisynth
+  - miniMidiOut
+- Filesystem images:
+  - cpio the root filesystem
+    - compression method (gzip)
+- Target packages: Hardware handling
+  - evtest
+  - firmware
+    - (keep the pi0/1/2/3 pre selected untouched)
+    - Install DTB overlays
 - Target packages: Libraries: Audio/Sound
   - alsa-lib
     - everything!
     - especially *alsa-plugins*
   - portaudio (alsa + oss support)
 - System configuration: () Root filesystem overlay directories
-  - set the () empty to `board/raspberrypi/rootfs-overlay`
+  - set the () empty to `../miniMidiOut-src/pi1/rootfs-overlay`
 - Kernel
   - build devicetree with overlay support
 
-save as `.config` and than do:
+Save as `.config`.
+
+then do:
 ```
 make
 ```
 
-write image to sd-card on e.g. `/dev/mmcblk0`:
-```
-sudo dd status=progress if=output/images/sdcard.img of=/dev/mmcblk0
-```
+### Pi1 ramdisk
 
-### hint
+The upper description creates a `rootfs.cpio.gz` with the complete root filesystem.
+You can use this file instead of an ext4 root filesystem on your sd-card.
+The system will work in a copy of that filesystem, which is placed in
+the RAM. The system will never write something (back) to the sd-card!
+
+- make a single msdos/fat32 partition (minimum 53MB) on your sd-card
+- copy to that partition...
+  - the 4 `output/images/bcm2708*` files
+  - the file `output/images/rootfs.cpio.gz`
+  - the linux kernel `output/images/zImage`
+  - the content of `output/images/rpi-firmware/`
+- do not forget to copy the `overlays` folder inside `output/images/rpi-firmware/`
+
+### Hints for buildroot
 
 if code changed:
 ```
-make midisynth-rebuild
+make miniMidiOut-dirclean
 ```
 or
 ```
-make midisynth-dirclean
+make miniMidiOut-rebuild
 ```
-and then do a complete `make` again.
-
-
+and then do just `make` again and copy the new
+`output/images/rootfs.cpio.gz` to the sd-card.

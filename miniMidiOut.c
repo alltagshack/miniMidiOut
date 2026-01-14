@@ -25,7 +25,7 @@ typedef enum modes_s { SINUS, SAW, SQUARE, TRIANGLE } Modus;
 static volatile int keepRunning = 1;
 static volatile int activeCount = 0;
 static volatile int sustain = 0;
-int bufferSize = 8;
+int bufferSize = 16;
 int outputDeviceId = -1;
 
 static volatile Modus mode = SAW;
@@ -34,7 +34,7 @@ Voice voices[MAX_VOICES];
 
 void handleSig (int sig) { keepRunning = 0; }
 
-float midi2Freq (unsigned char *note) {
+float midi2Freq (unsigned char * const note) {
   return 440.0f * powf(2.0f, (*note - 69) / 12.0f);
 }
 
@@ -51,10 +51,12 @@ Voice *getVoiceForNote () {
     if (voices[i].active == 0)
       return &voices[i];
   }
+  /* no non active voice found. we use voice 0! */
+  activeCount--;
   return &voices[0];
 }
 
-Voice *findVoiceByFreq (float *freq) {
+Voice *findVoiceByFreq (float * const freq) {
   int i;
   for (i = 0; i < MAX_VOICES; i++) {
     if ((voices[i].active == 1) && voices[i].freq == *freq)
@@ -68,21 +70,22 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
                          const PaStreamCallbackTimeInfo *timeInfo,
                          PaStreamCallbackFlags statusFlags, void *userData) {
 
-  float *out = (float *)outputBuffer;
+  float sample, tri;
   unsigned int i, j;
-  int cnt = activeCount;
-  if (cnt < 1) {
+  float *out = (float *)outputBuffer;
+  
+  if (activeCount < 1) {
     return paContinue;
   }
   for (i = 0; i < framesPerBuffer; ++i) {
-    float sample = 0;
+    sample = 0;
     for (j = 0; j < MAX_VOICES; ++j) {
       if (voices[j].active > 0) {
         if (voices[j].active == 2) {
           if (sustain == 1) {
             voices[j].volume -= 0.000003f;
           } else {
-            voices[j].volume -= 0.000015f;
+            voices[j].volume -= 0.00015f;
           }
           if (voices[j].volume < 0.001f) {
             voices[j].active = 0;
@@ -99,15 +102,13 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           else
             sample += voices[j].volume;
           break;
-        case TRIANGLE: {
-          float tri;
+        case TRIANGLE:
           if (voices[j].phase < 0.5f)
             tri = 4.0f * voices[j].phase - 1.0f;
           else
             tri = -4.0f * voices[j].phase + 3.0f;
           sample += voices[j].volume * tri;
           break;
-        }
         default:
           sample += voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
         }
@@ -118,8 +119,8 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
       }
     }
 
-    *out++ = sample; // left
-    *out++ = sample; // right
+    *out++ = sample; /* left */
+    *out++ = sample; /* right */
   }
 
   return paContinue;
@@ -127,10 +128,10 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
 
 void switchMode (char m) {
   if (m == '\0') {
-    if (mode == SAW) m = 'q'; // -> sQuare
-    if (mode == SQUARE) m = 'r'; // -> tRiangle
-    if (mode == TRIANGLE) m = 'i'; // -> sInus
-    if (mode == SINUS) m = 'a'; // -> sAw
+    if (mode == SAW) m = 'q'; /* -> sQuare */
+    if (mode == SQUARE) m = 'r'; /* -> tRiangle */
+    if (mode == TRIANGLE) m = 'i'; /* -> sInus */
+    if (mode == SINUS) m = 'a'; /* -> sAw */
   }
 
   if (m == 'i') {
@@ -151,12 +152,16 @@ void switchMode (char m) {
 
 void *midiReadThread (void *data) {
   unsigned char buffer[3];
+  unsigned char status, note, vel;
   PaStream *stream;
-  PaError err;
+  ssize_t n;
   unsigned int count    = 0;
   unsigned int start_ms = 0;
   int old_sustain = 0;
+  float freq;
   PaStreamParameters params;
+  PaError err;
+  Voice *userData;
 
   err = Pa_Initialize();
   if (err != paNoError)
@@ -197,79 +202,79 @@ void *midiReadThread (void *data) {
         goto error;
     }
 
-    int n = snd_rawmidi_read((snd_rawmidi_t *)data, buffer, sizeof(buffer));
+    n = snd_rawmidi_read((snd_rawmidi_t *)data, buffer, 3);
 
     if (n > 0) {
-      unsigned char status = buffer[0];
-      unsigned char note = buffer[1];
-      unsigned char vel = buffer[2];
+      status = buffer[0];
+      note = buffer[1];
+      vel = buffer[2];
+      status = status & 0xF0;
 
-      //printf("Debug: %x %x %x\n", status, note, vel);
+      switch (status) {
+        case 0x90:
+            if (vel == 0) {
+                freq = midi2Freq(&note);
+                userData = findVoiceByFreq(&freq);
+                if (userData) userData->active = 2;
+            } else {
+                freq = midi2Freq(&note);
+                printf("%.2f Hz (%d)\n", freq, vel);
+                userData = getVoiceForNote();
+                activeCount++;
+                userData->active = 1;
+                userData->phase = 0.0;
+                userData->freq = freq;
+                userData->volume = 0.7f * ((float)vel / 127.0f);
 
-      if ((status & 0xF0) == 0x90 && vel > 0) {
-        float freq = midi2Freq(&note);
-        printf("%.2f Hz (%d)\n", freq, vel);
+                if (Pa_IsStreamStopped(stream)) {
+                  err = Pa_StartStream(stream);
+                  if (err != paNoError) goto error;
+                }
+            }
+            break;
+        case 0x80:
+            freq = midi2Freq(&note);
+            userData = findVoiceByFreq(&freq);
+            if (userData) {
+              userData->active = 2;
+            }
+            break;
+        case 0xB0:
+            if (note == 0x40) {
+                if (vel == 0x7F) sustain = 1;
+                if (vel == 0x00) sustain = 0;
 
-        Voice *userData = getVoiceForNote();
+                printf("sustain: 0x%X\n", vel);
 
-        activeCount++;
-        userData->active = 1;
-        userData->phase = 0.0;
-        userData->freq = freq;
-        if (vel < 70) {
-          userData->volume = 0.2f * ((float)vel / 70.0f);
-        } else if (vel < 90) {
-          userData->volume = 0.2f + 0.5f * ((float)vel - 70.0f) / 20.0f;
-        } else {
-          userData->volume = 0.7f + 0.3f * ((float)vel - 90.0f) / 37.0f;
-        }
+                if (old_sustain == 1 && sustain == 0 && Pa_IsStreamStopped(stream)) {
+                  if (count == 0) start_ms = now();
+                  count++;
+                }
 
-        if (Pa_IsStreamStopped(stream)) {
-          err = Pa_StartStream(stream);
-          if (err != paNoError)
-            goto error;
-        }
+                if (count > 0 && ( (now() - start_ms ) > WINDOW_MS)) {
+                  count = 0;
+                }
 
-      } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
+                if (count >= NEEDED)
+                {
+                  count = 0;
+                  switchMode('\0');
+                }
 
-        if (vel == 0x7F) sustain = 1;
-        if (vel == 0x00) sustain = 0;
-
-        printf("sustain: 0x%X\n", vel);
-
-        if (old_sustain == 1 && sustain == 0 && Pa_IsStreamStopped(stream)) {
-          if (count == 0) start_ms = now();
-          count++;
-        }
-
-        if (count > 0 && ( (now() - start_ms ) > WINDOW_MS)) {
-          count = 0;
-        }
-
-        if (count >= NEEDED)
-        {
-          count = 0;
-          switchMode('\0');
-        }
-
-        old_sustain = sustain;
-
-      } else if ((status & 0xF0) == 0xB0 && note == 0x00) {
-
-        switchMode('\0');
-
-      } else if ((status & 0xF0) == 0x80 ||
-                 ((status & 0xF0) == 0x90 && vel == 0)) {
-        float freq = midi2Freq(&note);
-        Voice *v = findVoiceByFreq(&freq);
-        if (v) {
-          v->active = 2;
-        }
+                old_sustain = sustain;
+            }
+            break;
+        default:
+            break;
       }
+
+    } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
+      goto out;
     }
   }
   printf("quitting...\n");
 
+out:
   if (Pa_IsStreamActive(stream)) {
     err = Pa_StopStream(stream);
     if (err != paNoError)
@@ -277,26 +282,25 @@ void *midiReadThread (void *data) {
   }
 
   err = Pa_CloseStream(stream);
-  if (err != paNoError)
-    goto error;
 
-  Pa_Terminate();
-  return NULL;
 error:
   Pa_Terminate();
-  fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
+  if (err != paNoError)
+    fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
   return NULL;
 }
 
-int main (int argc, char *argv[]) {
+int main (int argc, char *argv[])
+{
   snd_rawmidi_t *midi_in;
   pthread_t midi_read_thread;
+  int err;
 
   if (argc < 3) {
-    fprintf(stderr, "example usage: %s hw:2,0,0 sin|saw|sqr|tri [outputDeviceId] [bufferSize]\n", argv[0]);
+    fprintf(stderr, "example usage:\n\t%s hw:2,0,0 sin|saw|sqr|tri [outputDeviceId] [bufferSize]\n", argv[0]);
     return 1;
   }
-  if (argc == 4) {
+  if (argc >= 4) {
     outputDeviceId = atoi(argv[3]);
   }
 
@@ -304,7 +308,7 @@ int main (int argc, char *argv[]) {
     bufferSize = atoi(argv[4]);
   }
 
-  int err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
+  err = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
   if (err < 0) {
     fprintf(stderr, "error opening device: %s\n", snd_strerror(err));
     return 1;
