@@ -106,8 +106,8 @@ change `size = 32M` into `size = 61M`.
 
 Copy `pkg/` to buildroot packages:
 ```
-mkdir -p buildroot-2025.02.9/package/miniMidiOut
-cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/miniMidiOut/
+mkdir -p buildroot-2025.02.9/package/minimidiout
+cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/minimidiout/
 ```
 
 Change into buildroot:
@@ -117,12 +117,12 @@ cd buildroot-2025.02.9/
 
 Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
-	source "package/miniMidiOut/Config.in"
+	source "package/minimidiout/Config.in"
 ```
 
 Make this executeable:
 ```
-chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99miniMidiOut
+chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99minimidiout
 ```
 
 Make a default pi1 config and start menuconfig:
@@ -188,11 +188,11 @@ the RAM. The system will never write something (back) to the sd-card!
 
 if code changed:
 ```
-make miniMidiOut-dirclean
+make minimidiout-dirclean
 ```
 or
 ```
-make miniMidiOut-rebuild
+make minimidiout-rebuild
 ```
 and then do just `make` again and copy the new
 `output/images/rootfs.cpio.gz` to the sd-card.
@@ -205,9 +205,6 @@ and then do just `make` again and copy the new
 
 ```
 unset LD_LIBRARY_PATH
-cp ../miniMidiOut-src/eeepc_4G_701/post-build.sh board/qemu/x86/post-build.sh
-cp ../miniMidiOut-src/eeepc_4G_701/genimage.cfg board/qemu/x86/genimage.cfg
-cp ../miniMidiOut-src/eeepc_4G_701/syslinux.cfg board/qemu/x86/syslinux.cfg
 make qemu_x86_defconfig
 cp ../miniMidiOut-src/eeepc_4G_701/buildroot-2025.02.9-config.txt .config
 make menuconfig
@@ -219,10 +216,10 @@ make menuconfig
 - System configuration
   - () Root filesystem overlay directories:
     set to `../miniMidiOut-src/eeepc_4G_701/rootfs-overlay`
-  - Custom scripts to run before creating filesystem images:
-    set to `board/qemu/x86/post-build.sh`
-- host utilities
-  - host genimage
+  - Custom scripts to run before creating filesystem images: () empty
+  - Custom scripts to run after creating filesystem images: () empty
+- ost utilities
+  - deselect qemu
 - bootloaders
   - syslinux
     - mbr
@@ -243,6 +240,10 @@ make linux-menuconfig
     - <*> Sequencer support
 
 or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-6.12.27/.config`
+
+### Prepare sd-card
+
+...
 
 ### Debugging
 
