@@ -198,12 +198,16 @@ and then do just `make` again and copy the new
 `output/images/rootfs.cpio.gz` to the sd-card.
 
 
+## Build SD-Card with buildroot (eeepc)
 
-
-
-## Build SD-Card via buildroot (eeepc)
+THIS IS NOT READY AND NOT SUCCESSFUL TESTED
 
 ```
+tar -xzf buildroot-2025.02.9.tar.gz
+git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
+chmod +x miniMidiOut-src/eeepc_4G_701/post-image.sh
+chmod +x miniMidiOut-src/eeepc_4G_701/rootfs-overlay/etc/init.d/S99minimidiout
+cd buildroot-2025.02.9
 unset LD_LIBRARY_PATH
 make qemu_x86_defconfig
 cp ../miniMidiOut-src/eeepc_4G_701/buildroot-2025.02.9-config.txt .config
@@ -216,13 +220,16 @@ make menuconfig
 - System configuration
   - () Root filesystem overlay directories:
     set to `../miniMidiOut-src/eeepc_4G_701/rootfs-overlay`
-  - Custom scripts to run before creating filesystem images: () empty
-  - Custom scripts to run after creating filesystem images: () empty
-- ost utilities
+  - Custom scripts to run after creating root filesystem:
+    set to `../miniMidiOut-src/eeepc_4G_701/post-image.sh`
+- host utilities
   - deselect qemu
 - bootloaders
   - syslinux
     - mbr
+
+... (add similar pi1 parts to list)
+
 
 ```
 make linux-menuconfig
@@ -241,9 +248,21 @@ make linux-menuconfig
 
 or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-6.12.27/.config`
 
-### Prepare sd-card
+```
+make
+```
 
-...
+If something went wrong, this build makes sense, too:
+```
+make host-fakeroot-rebuild
+make host-genimage-rebuild
+```
+
+Write to sd-card in /dev/mmcblk0:
+```
+sudo dd if=output/images/sdcard.img of=/dev/mmcblk0 bs=4M status=progress
+sudo syslinux --install /dev/mmcblk0p1
+```
 
 ### Debugging
 

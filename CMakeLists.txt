@@ -43,6 +43,3 @@ target_link_libraries(miniMidiOut
     ${ASOUND_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${MATH_LIBRARY})
-
-install(TARGETS miniMidiOut
-    RUNTIME DESTINATION usr/bin)
