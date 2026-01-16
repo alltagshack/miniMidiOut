@@ -8,6 +8,7 @@ start() {
     amixer sset Master unmute
     amixer sset Master 100%
     amixer sset Speaker unmute
+    miniMidiOut hw:1,0,0 saw -1 16 10 16000 /dev/input/event4 44100 &
 }
    
 stop() {

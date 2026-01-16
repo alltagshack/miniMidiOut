@@ -255,10 +255,11 @@ make host-genimage-rebuild
 Build bootable sd-card in `/dev/mmcblk0` as `root` user:
 ```
 parted /dev/mmcblk0 mklabel msdos
-parted -a optimal /dev/mmcblk0 mkpart primary fat32 1MiB 53MiB
+parted -a optimal /dev/mmcblk0 mkpart primary fat32 1MiB 53MiB set 1 boot on
 mkfs.vfat -F 32 /dev/mmcblk0p1
 
 syslinux --install /dev/mmcblk0p1
+dd if=output/images/syslinux/mbr.bin of=/dev/mmcblk0 bs=440 count=1
 
 mkdir -p /tmp/mmc
 mount /dev/mmcblk0p1 /tmp/mmc
