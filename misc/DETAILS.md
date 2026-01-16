@@ -134,33 +134,31 @@ make menuconfig
 
 Select/set this:
 
+- System configuration: () Root filesystem overlay directories
+  - set the () empty to `../miniMidiOut-src/pi1/rootfs-overlay`
 - Target packages: Audio and video applications
+  - miniMidiOut
   - alsa-utils
-    - alsamixer
     - alsactl
+    - alsamixer
     - amidi
     - amixer
     - aplay
     - aseqdump
-  - miniMidiOut
-- Filesystem images:
-  - cpio the root filesystem
-    - compression method (gzip)
-  - deselct ext2/3/4
 - Target packages: Hardware handling
-  - evtest
   - firmware
     - (keep the pi0/1/2/3 pre selected untouched)
     - Install DTB overlays
+  - evtest
 - Target packages: Libraries: Audio/Sound
   - alsa-lib
     - everything!
     - especially *alsa-plugins*
   - portaudio (alsa + oss support)
-- System configuration: () Root filesystem overlay directories
-  - set the () empty to `../miniMidiOut-src/pi1/rootfs-overlay`
-- Kernel
-  - build devicetree with overlay support
+- Filesystem images:
+  - cpio the root filesystem
+    - compression method (gzip)
+  - keep selcted ext2/3/4
 
 Save as `.config`.
 

@@ -13,7 +13,7 @@ An alternative way via [Release Files](https://github.com/no-go/miniMidiOut/rele
 - use my Pi1 sd-card content (just a single FAT32 partition is needed)
 - use my sd-card image for the eeepc 4G 701 (32bit Pentium, BIOS boot)
 
-With these files/images the system boots a minimal Linux and starts `miniMidiOut` via `/etc/init.d/S99miniMidiOut`.
+With these files/images the system boots a minimal Linux and autostarts `miniMidiOut`.
 
 ![use-case](misc/usecase.png)
 
