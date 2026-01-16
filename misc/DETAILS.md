@@ -145,6 +145,7 @@ Select/set this:
     - amixer
     - aplay
     - aseqdump
+  - sox
 - Target packages: Hardware handling
   - firmware
     - (keep the pi0/1/2/3 pre selected untouched)
@@ -158,7 +159,7 @@ Select/set this:
 - Filesystem images:
   - cpio the root filesystem
     - compression method (gzip)
-  - keep selcted ext2/3/4
+  - keep selected ext2/3/4
 
 Save as `.config`.
 
