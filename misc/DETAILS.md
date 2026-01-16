@@ -141,21 +141,21 @@ Select/set this:
   - alsa-utils
     - alsactl
     - alsamixer
-    - amidi
+    - amidi (optional)
     - amixer
-    - aplay
+    - aplay (optional)
     - aseqdump
-  - sox
+  - sox (optional)
 - Target packages: Hardware handling
   - firmware
     - (keep the pi0/1/2/3 pre selected untouched)
     - Install DTB overlays
-  - evtest
+  - evtest (optional)
 - Target packages: Libraries: Audio/Sound
   - alsa-lib
     - everything!
     - especially *alsa-plugins*
-  - portaudio (alsa + oss support)
+  - portaudio (alsa)
 - Filesystem images:
   - cpio the root filesystem
     - compression method (gzip)
