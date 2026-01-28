@@ -231,14 +231,19 @@ make linux-menuconfig
 
 - Device Drivers: Sound card support
   - <*> Advanced Linux Sound Architecture
+    - [*] Enable OSS Emulation
+      - <*> OSS Mixer API
+      - <*> OSS PCM (digital audio) API
     - HD Audio
       - <*> HD Audio PCI
       - [*] Build hwdep interface for HD-audio driver
       - <*> Build Realtek HD-audio codec support
+    - <*> Sequencer support
+      - <*> OSS Sequencer API 
     - [*] USB sound devices
       - <*> USB Audio/MIDI driver
         - [*] MIDI 2.0 support by USB Audio driver
-    - <*> Sequencer support
+
 
 or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-6.12.27/.config`
 
