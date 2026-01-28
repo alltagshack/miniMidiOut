@@ -32,11 +32,14 @@ if(NOT MATH_LIBRARY)
         "Install the Debian package: libc6-dev (contains libm).")
 endif()
 
-add_executable(miniMidiOut miniMidiOut.c)
+add_executable(miniMidiOut
+    main.c modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c globals.c)
+
+target_include_directories(miniMidiOut PRIVATE
+    include)
 
 target_link_libraries(miniMidiOut
     ${PORTAUDIO_LIBRARY}
     ${ASOUND_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
-    ${MATH_LIBRARY}
-)
+    ${MATH_LIBRARY})

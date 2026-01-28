@@ -6,7 +6,7 @@ start() {
     modprobe snd-bcm2835
     modprobe snd-usb-audio
     modprobe snd-seq-midi
-    miniMidiOut hw:1,0,0 saw &
+    #miniMidiOut hw:1,0,0 saw &
 }
    
 stop() {
