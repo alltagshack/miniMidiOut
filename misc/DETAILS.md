@@ -160,11 +160,66 @@ Select/set this:
   - cpio the root filesystem
     - compression method (gzip)
   - keep selected ext2/3/4
+- Kernel
+  - Kernel version (Latest CIP RT SLTS version (5.10.162-cip24-rt10))
+  - Kernel configuration (Using a custom config file)
+  - ( linux.config ) Path to the configuration file
 
 Save as `.config`.
 
 then do:
 ```
+touch linux.config
+make linux-menuconfig
+```
+
+- general setup
+  - Preemption Model (Preemptible Kernel (Low-Latency Desktop))
+  - Initial RAM filesystem and RAM disk
+    - gzip
+  - boot config support
+- kernel features
+  - Timer frequency (1000 Hz)
+- System Type
+  - Broadcom SoC Support
+    - BCM2835 SoC support
+
+- Device Drivers
+  - MMC/SD/SDIO card support 
+    - MMC block device driver
+    - Broadcom BCM2835 MMC/SD host controller
+  - USB support
+    - Support for Host-side USB
+    - OTG support
+    - OHCI HCD (USB 1.1) support
+    - Generic OHCI driver for a platform device 
+  - HID support
+    - USB HID support
+      - USB HID transport layer
+  - Sound card support
+    - <*> Advanced Linux Sound Architecture
+      - [*] Enable OSS Emulation
+        - <*> OSS Mixer API
+        - <*> OSS PCM (digital audio) API
+      - <*> Sequencer support
+        - <*> OSS Sequencer API 
+      - [*] USB sound devices
+        - <*> USB Audio/MIDI driver
+          - [*] MIDI 2.0 support by USB Audio drive
+  - GPIO Support
+    - /sys/class/gpio/... (sysfs)
+  - Pulse-Width Modulation (PWM) Support
+    - BCM2835 PWM support
+  - Graphics support
+    - Frame buffer Devices
+      - Support for frame buffer devices
+      - Simple framebuffer support
+  - Device Tree and Open Firmware support
+    - Device Tree overlays
+
+after that:
+```
+cp output/build/linux-5.10.162-cip24-rt10/.config linux.config
 make
 ```
 
@@ -229,21 +284,14 @@ make menuconfig
 make linux-menuconfig
 ```
 
+same like pi1, but add this:
+
 - Device Drivers: Sound card support
   - <*> Advanced Linux Sound Architecture
-    - [*] Enable OSS Emulation
-      - <*> OSS Mixer API
-      - <*> OSS PCM (digital audio) API
     - HD Audio
       - <*> HD Audio PCI
       - [*] Build hwdep interface for HD-audio driver
       - <*> Build Realtek HD-audio codec support
-    - <*> Sequencer support
-      - <*> OSS Sequencer API 
-    - [*] USB sound devices
-      - <*> USB Audio/MIDI driver
-        - [*] MIDI 2.0 support by USB Audio driver
-
 
 or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-5.10.162-cip24-rt10/.config`
 
