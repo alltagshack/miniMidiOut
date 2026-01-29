@@ -164,6 +164,7 @@ Select/set this:
   - Kernel version (Latest CIP RT SLTS version (5.10.162-cip24-rt10))
   - Kernel configuration (Using a custom config file)
   - ( linux.config ) Path to the configuration file
+  - (bcm2835-rpi-b-rev2 bcm2835-rpi-b bcm2835-rpi-b-plus bcm2835-rpi-zero) In-tree Device Tree Source file names
 
 Save as `.config`.
 
