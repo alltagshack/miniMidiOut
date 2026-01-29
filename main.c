@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <linux/input-event-codes.h>
 #include <portaudio.h>
 #include <math.h>
@@ -16,6 +18,8 @@
 #include <sys/epoll.h>
 
 #include <errno.h>
+#include <sched.h>
+#include <sys/mman.h>
 
 #include "modus.h"
 #include "noise.h"
@@ -390,13 +394,12 @@ int main (int argc, char *argv[])
   char m = '\0';
   struct sigaction sa;
   int midi_fd;
+  struct sched_param param;
 
-  /* only if root start. only senseful on PREEMPT_RT linux.
+  param.sched_priority = 50;
+  sched_setscheduler(0, SCHED_FIFO, &param);
 
-  struct sched_param p = { .sched_priority = 98 };
-  sched_setscheduler(0, SCHED_FIFO, &p);
-
-  */
+  mlockall(MCL_CURRENT | MCL_FUTURE);
 
   g_autoFading = 0;
   g_keepRunning = 1;

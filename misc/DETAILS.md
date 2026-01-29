@@ -245,7 +245,14 @@ make linux-menuconfig
         - [*] MIDI 2.0 support by USB Audio driver
 
 
-or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-6.12.27/.config`
+or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-5.10.162-cip24-rt10/.config`
+
+Remove both patches inside qemu, because they make not sense on eeepc:
+```
+rm board/qemu/patches/linux/*.patch
+```
+
+Do the build, now:
 
 ```
 make
