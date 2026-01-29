@@ -2,7 +2,7 @@
 
 ## Non SD-Card usage
 
-Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
+Install `alsa-utils`, OSS (?) and `libportaudio2`.
 
 Add YOURSELF to the input group. The code uses a letter keyboard or usb numpad, if it exists.
 
@@ -16,38 +16,38 @@ After logout and relogin YOURSELF you and `miniMidiOut` have the right to access
 
 For sinus wave similar to a bell or flute:
 ```
-miniMidiOut hw:2,0,0 sin
+miniMidiOut /dev/midi1 sin
 ```
 
 For saw sound effect. It is the synth-sound from the 80th and similar to a spinet:
 ```
-miniMidiOut hw:2,0,0 saw
+miniMidiOut /dev/midi1 saw
 ```
 
 For square sound effect similar to 8bit arcade game from the 80th:
 ```
-miniMidiOut hw:2,0,0 sqr
+miniMidiOut /dev/midi1 sqr
 ```
 
 For triangle sound effect similar to a cheap electric doorbell or gong:
 ```
-miniMidiOut hw:2,0,0 tri
+miniMidiOut /dev/midi1 tri
 ```
 
 For noise sound effect similar to wind, ocean waves or percussion:
 ```
-miniMidiOut hw:2,0,0 noi
+miniMidiOut /dev/midi1 noi
 ```
 
 After starting `miniMidiOut` with success, it plays 3 tones as startup theme.
 
 `miniMidiOut` uses the default audio device for output. You can
-change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
-The default is used with `miniMidiOut hw:2,0,0 tri -1`.
+change this e.g. `hw:1` with an optional 3rd `miniMidiOut /dev/midi1 sin 1`.
+The default is used with `miniMidiOut /dev/midi1 tri -1`.
 
 `miniMidiOut` has an optional 4th parameter for the buffer size. The default
 is `16` and works well on Pi1. You can change the buffer e.g. to `512`
-with `miniMidiOut hw:2,0,0 sin -1 512` if you want.
+with `miniMidiOut /dev/midi1 sin -1 512` if you want.
 
 There is an optional 5th parameter form `-20` to `100` (fade). A negative value
 fades the sound of a key out WHILE it is pressed. With a value of `-20` this

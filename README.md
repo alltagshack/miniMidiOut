@@ -2,7 +2,12 @@
 
 A "fast" midi input to audio output synthesizer with 5 popular waveforms.
 
-Messurement on Pi1 (it is not realy realtime): delay between key press and audio out is *68ms*
+## It is not realy realtime
+
+Messure delay between key press and audio out:
+
+- Pi1: this rt-branch is Pi1 is untested/todo
+- eeepc: *48ms*
 
 ## Usage
 
