@@ -85,7 +85,7 @@ cmake -B .
 cmake --build .
 ```
 
-## Build sd-card via buildroot package (Pi1)
+## Build system with buildroot (Pi1)
 
 Check out my code as `miniMidiOut-src` and get/uncompress `buildroot-2025.02.9.tar.gz`:
 
@@ -149,7 +149,7 @@ make linux-menuconfig
 make
 ```
 
-### Pi1 ramdisk
+### Build bootable sd-card (Pi1)
 
 The upper description creates a `rootfs.cpio.gz` with the complete root filesystem.
 You can use this file instead of an ext4 root filesystem on your sd-card.
@@ -178,7 +178,7 @@ and then do just `make` again and copy the new
 `output/images/rootfs.cpio.gz` to the sd-card.
 
 
-## Build SD-Card with buildroot (eeepc)
+## Build system with buildroot (eeepc)
 
 ```
 tar -xzf buildroot-2025.02.9.tar.gz
@@ -235,6 +235,8 @@ make host-fakeroot-rebuild
 make host-genimage-rebuild
 ```
 
+### Build bootable sd-card (eeepc)
+
 Build bootable sd-card in `/dev/mmcblk0` as `root` user:
 ```
 parted /dev/mmcblk0 mklabel msdos
@@ -252,6 +254,16 @@ cp output/images/bzImage /tmp/mmc/
 cp output/images/rootfs.cpio.gz /tmp/mmc/
 
 umount /tmp/mmc
+```
+
+### make an eeepc.img.gz file from SD
+
+from `fdisk -l /dev/sdX` you get `$TOTAL` from `End`+1 (start + size).
+
+as root:
+```
+dd if=/dev/sdX of=eeepc.img bs=512 count=$TOTAL status=progress conv=fsync
+gzip eeepc.img
 ```
 
 ### Debugging
