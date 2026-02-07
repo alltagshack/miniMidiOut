@@ -2,7 +2,12 @@
 
 A "fast" midi input to audio output synthesizer with 5 popular waveforms.
 
-Messurement on Pi1 (it is not realy realtime): delay between key press and audio out is *68ms*
+## It is not realy realtime
+
+Messure delay between key press and audio out:
+
+- Pi1: *64ms*
+- eeepc: *48ms*
 
 ## Usage
 
@@ -22,6 +27,7 @@ With these files/images the system boots a minimal Linux and autostarts `miniMid
 3. if the MIDI USB keyboard has its own power button: power on!
 4. optional: plugin an USB alphanumeric keyboard
 5. plugin your headphones to the analog audio
+   - pi1: If you use the HDMI plug, the audio signal is there!
    - pi1: Attention! There is a 4th connection for analog video in the 3.5mm hole :-S
 6. power on the Pi1 (or eeepc)
 7. wait 16 seconds until 3 tones comes up

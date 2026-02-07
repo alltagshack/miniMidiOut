@@ -1,4 +1,5 @@
-#include <alsa/asoundlib.h>
+#define _GNU_SOURCE
+
 #include <linux/input-event-codes.h>
 #include <portaudio.h>
 #include <math.h>
@@ -7,6 +8,7 @@
 
 #include <signal.h>
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <time.h>
 
@@ -14,6 +16,10 @@
 #include <linux/input.h>
 #include <poll.h>
 #include <sys/epoll.h>
+
+#include <errno.h>
+#include <sched.h>
+#include <sys/mman.h>
 
 #include "modus.h"
 #include "noise.h"
@@ -260,48 +266,35 @@ static PaError _theme (PaStream *stream)
 
 void *midiReadThread (void *data)
 {
-    unsigned char midi_buf[32];
+    unsigned char midi_byte;
     PaStream *stream;
     PaError err;
     PaStreamParameters params;
-    int i;
     int ret1, ret2;
 
-    int midi_count;
+    int midi_fd = *((int *)data);
     int epoll_fd;
     struct epoll_event *events;
-    struct pollfd *pfds;
-    ssize_t n,j;
-
-    midi_count = snd_rawmidi_poll_descriptors_count((snd_rawmidi_t *)data);
-    
-    events = calloc(midi_count + 1, sizeof(struct epoll_event));
-    
-    pfds = calloc(midi_count, sizeof(struct pollfd));
-    snd_rawmidi_poll_descriptors((snd_rawmidi_t *)data, pfds, midi_count);
+    ssize_t n;
 
     epoll_fd = epoll_create1(0);
     if (epoll_fd == -1) {
         perror("epoll_create");
-        free(pfds);
-        free(events);
         return NULL;
     }
 
-    // Registriere alle MIDI-FD beim epoll
-    for (i = 0; i < midi_count; ++i) {
-        events[i].events = EPOLLIN;
-        events[i].data.fd = pfds[i].fd; // nur fd speichern
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, pfds[i].fd, &events[i]) == -1) {
-            perror("epoll_ctl: add");
-            free(pfds);
-            free(events);
-            close(epoll_fd);
-            return NULL;
-        }
+    events = calloc(2, sizeof(struct epoll_event));
+    
+    events[0].events = EPOLLIN;
+    events[0].data.fd = midi_fd;
+    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, midi_fd, &events[0]) == -1) {
+        perror("epoll_ctl: add");
+        free(events);
+        close(epoll_fd);
+        return NULL;
     }
 
-    keyboard_add_poll(events, midi_count, epoll_fd);
+    keyboard_add_poll(events, 1, epoll_fd);
     
     err = Pa_Initialize();
     if (err != paNoError) goto error;
@@ -330,40 +323,49 @@ void *midiReadThread (void *data)
             if (err != paNoError) goto error;
         }
 
-        ret1 = epoll_wait(epoll_fd, events, midi_count + 1, 200);
+        ret1 = epoll_wait(epoll_fd, events, 2, 200);
         if (ret1 < 0) {
             perror("epoll_wait");
             goto out;
         }
 
-        ret2 = keyboard_check_event(events, midi_count);
+        ret2 = keyboard_check_event(events, 1);
         if (ret2 < 0) break;
 
-        for (i = 0; i < ret1; ++i) {
-            if (events[i].events & (EPOLLERR | EPOLLHUP)) {
-                goto out;
-            }
 
-            if (events[i].events & EPOLLIN) {
-                n = snd_rawmidi_read((snd_rawmidi_t *)data, midi_buf, sizeof(midi_buf));
+        /* midi stuff */
+        if (events[0].events & (EPOLLERR | EPOLLHUP)) {
+            goto out;
+        }
+
+        if (events[0].events & EPOLLIN) {
+            
+            while (g_keepRunning) {
+                n = read(midi_fd, &midi_byte, 1);
 
                 if (n > 0) {
-                  for (j = 0; j < n; ++j) {
-                    err = midi_parse_byte(midi_buf[j], stream);
-                    if (err) goto error;
-                  }
-                } else if (n == -ENODEV || n == -EIO || n == -EPIPE || n == -EBADFD) {
-                    goto out;
+                  
+                  err = midi_parse_byte(midi_byte, stream);
+                  if (err) goto error;
+                  
+                } else if (n == 0) {
+                    break;
+                } else {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        break;
+                    } if (errno == ENODEV || errno == EIO || errno == EPIPE || errno == EBADFD) {
+                        goto out;
+                    }
+                    break;
                 }
             }
-        } /* end for midi polls */
+        }
 
     } /* end while */
 
     printf("quitting...\n");
 
 out:
-    snd_rawmidi_drop((snd_rawmidi_t *)data);
 
     if (Pa_IsStreamActive(stream)) {
         err = Pa_StopStream(stream);
@@ -378,7 +380,6 @@ error:
 
     Pa_Terminate();
     free(events);
-    free(pfds);
     close(epoll_fd); // Schließe epoll FD
     return NULL;
 }
@@ -392,16 +393,13 @@ int main (int argc, char *argv[])
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
-  snd_rawmidi_t *midi_in;
-  snd_rawmidi_params_t *params;
-  int alsaerr;
+  int midi_fd;
+  struct sched_param param;
 
-  /* only if root start. only senseful on PREEMPT_RT linux.
+  param.sched_priority = 50;
+  sched_setscheduler(0, SCHED_FIFO, &param);
 
-  struct sched_param p = { .sched_priority = 98 };
-  sched_setscheduler(0, SCHED_FIFO, &p);
-
-  */
+  mlockall(MCL_CURRENT | MCL_FUTURE);
 
   g_autoFading = 0;
   g_keepRunning = 1;
@@ -422,14 +420,14 @@ int main (int argc, char *argv[])
 
   if (argc < 2) {
     fprintf(stderr, "example usage:\n");
-    fprintf(stderr, "\t%s hw:2,0,0 [sin|saw|sqr|tri|noi]\n", argv[0]);
-    fprintf(stderr, "\t%s hw:2,0,0 saw [outputDeviceId]\n", argv[0]);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 [bufferSize]\n", argv[0]);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d [fade -20 to 100]\n", argv[0], g_bufferSize);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d [envelope]\n", argv[0], g_bufferSize, g_fading);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d [keypad]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice);
-    fprintf(stderr, "\t%s hw:2,0,0 saw -1 %d %d %d %s %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice, g_sampleRate);
+    fprintf(stderr, "\t%s /dev/midi3 [sin|saw|sqr|tri|noi]\n", argv[0]);
+    fprintf(stderr, "\t%s /dev/midi3 saw [outputDeviceId]\n", argv[0]);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 [bufferSize]\n", argv[0]);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d [fade -20 to 100]\n", argv[0], g_bufferSize);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d [envelope]\n", argv[0], g_bufferSize, g_fading);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d [keypad]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d %s [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d %s %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice, g_sampleRate);
     return 1;
   }
   if (argc >= 3) {
@@ -467,28 +465,22 @@ int main (int argc, char *argv[])
 
   while (g_keepRunning)
   {
-    midi_in = NULL;
-    alsaerr = snd_rawmidi_open(&midi_in, NULL, argv[1], SND_RAWMIDI_NONBLOCK);
-    if (alsaerr < 0)
+    midi_fd = open(argv[1], O_RDONLY | O_NONBLOCK);
+    if (midi_fd < 0)
     {
       tt_waiting(500);
       continue;
     }
-    snd_rawmidi_params_alloca(&params);
-    snd_rawmidi_params_current(midi_in, params);
-    snd_rawmidi_params_set_avail_min(midi_in, params, 1);
-    snd_rawmidi_params_set_buffer_size(midi_in, params, 2);
-
+    
     keyboard_open(keyboardDevice);
 
-    pthread_create(&midi_read_thread, NULL, midiReadThread, midi_in);
+    pthread_create(&midi_read_thread, NULL, midiReadThread, &midi_fd);
     pthread_join(midi_read_thread, NULL);
-    
-    snd_rawmidi_drop(midi_in);
-    snd_rawmidi_close(midi_in);
 
     tt_waiting(200);
     keyboard_close();
+    
+    if (midi_fd >= 0) close(midi_fd);
   }
 
   return 0;

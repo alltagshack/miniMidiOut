@@ -18,4 +18,4 @@ for i in /etc/profile.d/*.sh ; do
 done
 unset i
 
-miniMidiOut hw:1,0,0 saw
+miniMidiOut /dev/midi1 saw

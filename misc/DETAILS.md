@@ -2,7 +2,7 @@
 
 ## Non SD-Card usage
 
-Install `alsa-utils` and `libportaudio2`. Use `amidi -l` to find your keyboard (midi input) device.
+Install `alsa-utils`, OSS (?) and `libportaudio2`.
 
 Add YOURSELF to the input group. The code uses a letter keyboard or usb numpad, if it exists.
 
@@ -16,38 +16,38 @@ After logout and relogin YOURSELF you and `miniMidiOut` have the right to access
 
 For sinus wave similar to a bell or flute:
 ```
-miniMidiOut hw:2,0,0 sin
+miniMidiOut /dev/midi1 sin
 ```
 
 For saw sound effect. It is the synth-sound from the 80th and similar to a spinet:
 ```
-miniMidiOut hw:2,0,0 saw
+miniMidiOut /dev/midi1 saw
 ```
 
 For square sound effect similar to 8bit arcade game from the 80th:
 ```
-miniMidiOut hw:2,0,0 sqr
+miniMidiOut /dev/midi1 sqr
 ```
 
 For triangle sound effect similar to a cheap electric doorbell or gong:
 ```
-miniMidiOut hw:2,0,0 tri
+miniMidiOut /dev/midi1 tri
 ```
 
 For noise sound effect similar to wind, ocean waves or percussion:
 ```
-miniMidiOut hw:2,0,0 noi
+miniMidiOut /dev/midi1 noi
 ```
 
 After starting `miniMidiOut` with success, it plays 3 tones as startup theme.
 
 `miniMidiOut` uses the default audio device for output. You can
-change this e.g. `hw:1` with an optional 3rd `miniMidiOut hw:2,0,0 sin 1`.
-The default is used with `miniMidiOut hw:2,0,0 tri -1`.
+change this e.g. `hw:1` with an optional 3rd `miniMidiOut /dev/midi1 sin 1`.
+The default is used with `miniMidiOut /dev/midi1 tri -1`.
 
 `miniMidiOut` has an optional 4th parameter for the buffer size. The default
 is `16` and works well on Pi1. You can change the buffer e.g. to `512`
-with `miniMidiOut hw:2,0,0 sin -1 512` if you want.
+with `miniMidiOut /dev/midi1 sin -1 512` if you want.
 
 There is an optional 5th parameter form `-20` to `100` (fade). A negative value
 fades the sound of a key out WHILE it is pressed. With a value of `-20` this
@@ -71,12 +71,11 @@ On debian or ubuntu you need these packages:
 
 - gcc
 - portaudio19-dev
-- libasound-dev
 
 ```
 gcc main.c \
     modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c globals.c \
-    -Wall -Iinclude/ -lm -lportaudio -lasound -pthread -o miniMidiOut
+    -Wall -Iinclude/ -lm -lportaudio -pthread -o miniMidiOut
 ```
 
 ## Cmake alternative build
@@ -95,19 +94,15 @@ git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
 ```
 
-Use the `cmdline.txt` and `config.txt` from my code:
+Make this executeable:
 ```
-cp miniMidiOut-src/pi1/cmdline.txt buildroot-2025.02.9/board/raspberrypi/cmdline.txt
-cp miniMidiOut-src/pi1/config.txt buildroot-2025.02.9/board/raspberrypi/config_default.txt
+chmod +x miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99minimidiout
 ```
 
-Look into `buildroot-2025.02.9/board/raspberrypi/genimage.cfg.in` and
-change `size = 32M` into `size = 61M`.
-
-Copy `pkg/` to buildroot packages:
+Add my `pkg` to buildroot packages and add my `pi1_defconfig` file to `configs`:
 ```
-mkdir -p buildroot-2025.02.9/package/minimidiout
-cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/minimidiout/
+cp -r miniMidiOut-src/pkg buildroot-2025.02.9/package/minimidiout
+cp miniMidiOut-src/pi1/pi1_defconfig buildroot-2025.02.9/configs/
 ```
 
 Change into buildroot:
@@ -120,50 +115,36 @@ Add this line into `package/Config.in` e.g. in the menu *Audio and video applica
 	source "package/minimidiout/Config.in"
 ```
 
-Make this executeable:
-```
-chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99minimidiout
-```
-
 Make a default pi1 config and start menuconfig:
 ```
 unset LD_LIBRARY_PATH
-make raspberrypi_defconfig
+make pi1_defconfig
 make menuconfig
 ```
-
-Select/set this:
-
-- System configuration: () Root filesystem overlay directories
-  - set the () empty to `../miniMidiOut-src/pi1/rootfs-overlay`
-- Target packages: Audio and video applications
-  - miniMidiOut
-  - alsa-utils
-    - alsactl
-    - alsamixer
-    - amidi (optional)
-    - amixer
-    - aplay (optional)
-    - aseqdump
-  - sox (optional)
-- Target packages: Hardware handling
-  - firmware
-    - (keep the pi0/1/2/3 pre selected untouched)
-    - Install DTB overlays
-  - evtest (optional)
-- Target packages: Libraries: Audio/Sound
-  - alsa-lib
-    - everything!
-    - especially *alsa-plugins*
-  - portaudio (alsa)
-- Filesystem images:
-  - cpio the root filesystem
-    - compression method (gzip)
-  - keep selected ext2/3/4
 
 Save as `.config`.
 
 then do:
+```
+make linux-menuconfig
+```
+
+- general setup
+  - Preemption Model (Fully Preemptible Kernel (Real-Time))
+  - boot config support
+- Kernel Features
+  - Timer frequency (1000 Hz)
+- Device Drivers
+  - Sound card support
+    - <*> Advanced Linux Sound Architecture
+      - [*] Enable OSS Emulation
+        - <*> OSS Mixer API
+        - <*> OSS PCM (digital audio) API
+      - <*> Sequencer support
+        - <*> OSS Sequencer API 
+      - [*] USB sound devices
+        - <*> USB Audio/MIDI driver
+
 ```
 make
 ```
@@ -177,7 +158,7 @@ the RAM. The system will never write something (back) to the sd-card!
 
 - make a single msdos/fat32 partition (minimum 53MB) on your sd-card
 - copy to that partition...
-  - the 4 `output/images/bcm2708*` files
+  - the 4 `output/images/bcm2835-rpi-*` files
   - the file `output/images/rootfs.cpio.gz`
   - the linux kernel `output/images/zImage`
   - the content of `output/images/rpi-firmware/`
@@ -222,12 +203,11 @@ make menuconfig
   - syslinux
     - mbr
 
-... (add similar pi1 parts to list)
-
-
 ```
 make linux-menuconfig
 ```
+
+same like pi1, but add this:
 
 - Device Drivers: Sound card support
   - <*> Advanced Linux Sound Architecture
@@ -235,12 +215,15 @@ make linux-menuconfig
       - <*> HD Audio PCI
       - [*] Build hwdep interface for HD-audio driver
       - <*> Build Realtek HD-audio codec support
-    - [*] USB sound devices
-      - <*> USB Audio/MIDI driver
-        - [*] MIDI 2.0 support by USB Audio driver
-    - <*> Sequencer support
 
-or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-6.12.27/.config`
+or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-5.10.162-cip24-rt10/.config`
+
+Remove both patches inside qemu, because they make not sense on eeepc:
+```
+rm board/qemu/patches/linux/*.patch
+```
+
+Do the build, now:
 
 ```
 make

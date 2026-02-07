@@ -11,13 +11,6 @@ if(NOT PORTAUDIO_LIBRARY)
         "Install the Debian package: portaudio19-dev.")
 endif()
 
-find_library(ASOUND_LIBRARY asound)
-if(NOT ASOUND_LIBRARY)
-    message(FATAL_ERROR
-        "ALSA (libasound) not found.\n"
-        "Install the Debian package: libasound-dev.")
-endif()
-
 find_package(Threads QUIET)
 if(NOT Threads_FOUND)
     message(FATAL_ERROR
@@ -40,6 +33,5 @@ target_include_directories(miniMidiOut PRIVATE
 
 target_link_libraries(miniMidiOut
     ${PORTAUDIO_LIBRARY}
-    ${ASOUND_LIBRARY}
     ${CMAKE_THREAD_LIBS_INIT}
     ${MATH_LIBRARY})
