@@ -130,13 +130,24 @@ make linux-menuconfig
 ```
 
 - general setup
-  - Preemption Model (Preemptible Kernel (Low-Latency Desktop))
-  - Initial RAM filesystem and RAM disk
-    - gzip
+  - Preemption Model (Fully Preemptible Kernel (Real-Time))
   - boot config support
-- kernel features
+- Kernel Features
   - Timer frequency (1000 Hz)
+- Device Drivers
+  - Sound card support
+    - <*> Advanced Linux Sound Architecture
+      - [*] Enable OSS Emulation
+        - <*> OSS Mixer API
+        - <*> OSS PCM (digital audio) API
+      - <*> Sequencer support
+        - <*> OSS Sequencer API 
+      - [*] USB sound devices
+        - <*> USB Audio/MIDI driver
 
+```
+make
+```
 
 ### Pi1 ramdisk
 
@@ -147,7 +158,7 @@ the RAM. The system will never write something (back) to the sd-card!
 
 - make a single msdos/fat32 partition (minimum 53MB) on your sd-card
 - copy to that partition...
-  - the 4 `output/images/bcm2708*` files
+  - the 4 `output/images/bcm2835-rpi-*` files
   - the file `output/images/rootfs.cpio.gz`
   - the linux kernel `output/images/zImage`
   - the content of `output/images/rpi-firmware/`
