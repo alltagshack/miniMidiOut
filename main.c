@@ -61,9 +61,15 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           } else {
             voices[j].volume -= (float)g_fading * 0.000005f;
           }
+
+          if (g_autoFading == 2) {
+            voices[j].freq *= 1.0001;
+          } else if (g_autoFading == 3) {
+            voices[j].freq *= 0.9999;
+          }
         }
 
-        if ((i == 0) && (voices[j].volume < 0.001f)) {
+        if ((i == 0) && ((voices[j].volume < 0.001f) || voices[j].freq > 18000 || voices[j].freq < 1)) {
           voices[j].volume = 0.0f;
           voices[j].active = 0;
           voice_active--;
@@ -127,14 +133,16 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
 
   if ((status & 0xF0) == 0x90 && vel > 0) {
     freq = voice_midi2freq(&note);
-    printf("%.2f Hz (%d)\n", freq, vel);
+
+    //printf("%.2f Hz (%d)\n", freq, vel);
 
     userData = voice_get();
 
     voice_active++;
+    userData->note = note;
+    userData->freq = freq;
     userData->active = (g_autoFading == 1)? 2 : 1;
     userData->phase = 0.0;
-    userData->freq = freq;
     userData->volume = 0.7f * ((float)vel / 127.0f);
     userData->envelope = g_envelopeSamples;
 
@@ -165,8 +173,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
       count = 0;
     }
 
-    printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n",
-      old_sustain, g_sustain, count, voice_active);
+    //printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n", old_sustain, g_sustain, count, voice_active);
 
     if (count >= SUSTAIN_NEEDED)
     {
@@ -179,10 +186,7 @@ PaError play (PaStream *stream, unsigned char status, unsigned char note, unsign
   } else if ((status & 0xF0) == 0x80 ||
             ((status & 0xF0) == 0x90 && vel == 0)) {
 
-    /* release a tone */
-
-    freq = voice_midi2freq(&note);
-    userData = voice_find_by_freq(&freq);
+    userData = voice_find_by_note(&note);
     if (userData) {
       userData->active = 2;
     }
@@ -381,7 +385,7 @@ error:
 
     Pa_Terminate();
     free(events);
-    close(epoll_fd); // Schließe epoll FD
+    close(epoll_fd);
     return NULL;
 }
 

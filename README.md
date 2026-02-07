@@ -48,7 +48,11 @@ Change fading out the tone (release):
 - press `6` for default
 - press `7` for a long fade out
 - press `8` for no fade out
-- press `9` toggles automatic fade out on/off
+- press `9` toggles
+  - automatic fade out on
+  - automatic fade off
+  - glissando up
+  - glissando down
 
 Change octave:
 

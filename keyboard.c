@@ -123,7 +123,7 @@ int keyboard_check_event (struct epoll_event *all, unsigned int id)
             } else if ((ev.code == KEY_KP8 || ev.code == KEY_8) && ev.value == 1) {
                 g_fading = FADING2;
             } else if ((ev.code == KEY_KP9 || ev.code == KEY_9) && ev.value == 1) {
-                g_autoFading = g_autoFading == 1? 0 : 1;
+                g_autoFading = (g_autoFading+1)%4;
 
             } else if ((ev.code == KEY_KPMINUS || ev.code == KEY_MINUS) && ev.value == 1) {
                 voice_pitch /= 2.0f;

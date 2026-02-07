@@ -18,15 +18,15 @@ Voice *voice_get () {
   return &voices[0];
 }
 
-Voice *voice_find_by_freq (float *freq) {
+Voice *voice_find_by_note (const unsigned char *note) {
   int i;
   for (i = 0; i < VOICE_MAX; i++) {
-    if ((voices[i].active == 1) && voices[i].freq == *freq)
+    if ((voices[i].active == 1) && voices[i].note == *note)
       return &voices[i];
   }
   return NULL;
 }
 
-float voice_midi2freq (unsigned char *note) {
+float voice_midi2freq (const unsigned char *note) {
   return voice_pitch * powf(2.0f, (*note - 69) / 12.0f);
 }
