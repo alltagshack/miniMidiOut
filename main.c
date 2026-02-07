@@ -3,6 +3,7 @@
 #include <linux/input-event-codes.h>
 #include <portaudio.h>
 #include <math.h>
+#include <string.h>
 
 #include <pthread.h>
 
@@ -406,7 +407,7 @@ int main (int argc, char *argv[])
   g_sustain = 0;
   
   modus = SAW;
-  char *keyboardDevice = KEYBOARD_EVENT;
+  char keyboardDevice[256];
 
   g_outputDeviceId = -1;
   g_bufferSize = DEFAULT_BUFFER_SIZE;
@@ -426,8 +427,8 @@ int main (int argc, char *argv[])
     fprintf(stderr, "\t%s /dev/midi3 saw -1 %d [fade -20 to 100]\n", argv[0], g_bufferSize);
     fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d [envelope]\n", argv[0], g_bufferSize, g_fading);
     fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d [keypad]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d %s [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d %s %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, keyboardDevice, g_sampleRate);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d /dev/input/event0 [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
+    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d /dev/input/event0 %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, g_sampleRate);
     return 1;
   }
   if (argc >= 3) {
@@ -453,7 +454,9 @@ int main (int argc, char *argv[])
     g_envelopeSamples = atoi(argv[6]);
   }
   if (argc >= 8) {
-    keyboardDevice = argv[7];
+    keyboard_open(argv[7]);
+  } else {
+    keyboard_search(keyboardDevice);
   }
   if (argc == 9) {
     g_sampleRate = atoi(argv[8]);
@@ -471,17 +474,15 @@ int main (int argc, char *argv[])
       tt_waiting(500);
       continue;
     }
-    
-    keyboard_open(keyboardDevice);
 
     pthread_create(&midi_read_thread, NULL, midiReadThread, &midi_fd);
     pthread_join(midi_read_thread, NULL);
 
     tt_waiting(200);
-    keyboard_close();
     
     if (midi_fd >= 0) close(midi_fd);
   }
 
+  keyboard_close();
   return 0;
 }

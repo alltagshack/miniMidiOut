@@ -85,6 +85,11 @@ cmake -B .
 cmake --build .
 ```
 
+For a better handling with VisualStudio Code do this:
+```
+cmake -DCMAKE_EXPORT_COMPILE_COMMANDS=ON .
+```
+
 ## Build system with buildroot (Pi1)
 
 Check out my code as `miniMidiOut-src` and get/uncompress `buildroot-2025.02.9.tar.gz`:

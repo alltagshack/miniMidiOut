@@ -1,9 +1,16 @@
+#include <stddef.h>
 #include <stdio.h>
 /* open */
 #include <fcntl.h>
 /* close */
 #include <unistd.h>
 #include <linux/input.h>
+
+
+#include <dirent.h>
+#include <string.h>
+#include <sys/ioctl.h>
+
 #include <sys/epoll.h>
 #include "keyboard.h"
 
@@ -13,11 +20,63 @@
 
 static int _fd;
 
+
+void keyboard_search (char *keyboardDevice) {
+    DIR *dir;
+    struct dirent *entry;
+
+    if ((dir = opendir(KEYBOARD_EVENTS)) == NULL)
+    {
+        fprintf(stderr, "problem to open %s\n", KEYBOARD_EVENTS);
+        keyboardDevice[0] = '\0';
+        return;
+    }
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (strstr(entry->d_name, "event"))
+        {
+            char name[256] = {0};
+            size_t leng = strlen(KEYBOARD_EVENTS) + 1 + strlen(entry->d_name) + 1;
+
+            snprintf(
+                keyboardDevice, 
+                leng, 
+                "%s/%s",
+                KEYBOARD_EVENTS,
+                entry->d_name
+            );
+
+            _fd = open(keyboardDevice, O_RDONLY | O_NONBLOCK);
+            if (_fd < 0) {
+                fprintf(stderr, "problem to open %s\n", keyboardDevice);
+                continue;
+            }
+
+            ioctl(_fd, EVIOCGNAME(sizeof(name)), name);
+
+            if (strstr(name, KEYBOARD_SEARCH_STR) != NULL)
+            {
+                /* keyboard found and return */
+                printf("Found %s: %s\n", name, keyboardDevice);
+                closedir(dir);
+                return;
+            }
+
+            close(_fd);
+        }
+    }
+    /* nothing found */
+    keyboardDevice[0] = '\0';
+    closedir(dir);
+}
+
 void keyboard_open (char *dev)
 {
+    keyboard_close();
+
     _fd = open(dev, O_RDONLY | O_NONBLOCK);
     if (_fd < 0) {
-        fprintf(stderr, "missing this letter keyboard as event device: %s\n", dev);
+        fprintf(stderr, "missing a letter keyboard as event device %s\n", dev);
     }
 }
 

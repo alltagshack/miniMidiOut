@@ -3,7 +3,15 @@
 
 #include <sys/epoll.h>
 
-#define KEYBOARD_EVENT "/dev/input/event0"
+#define KEYBOARD_EVENTS "/dev/input"
+#define KEYBOARD_SEARCH_STR "eyboard"
+
+/**
+ * @brief search input events for a keyboard
+ 
+ * @param result is '\0' if no event path is found
+ */
+void keyboard_search (char *result);
 
 void keyboard_open (char *dev);
 void keyboard_close (void);
