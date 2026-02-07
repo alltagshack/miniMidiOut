@@ -71,12 +71,11 @@ On debian or ubuntu you need these packages:
 
 - gcc
 - portaudio19-dev
-- libasound-dev
 
 ```
 gcc main.c \
     modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c globals.c \
-    -Wall -Iinclude/ -lm -lportaudio -lasound -pthread -o miniMidiOut
+    -Wall -Iinclude/ -lm -lportaudio -pthread -o miniMidiOut
 ```
 
 ## Cmake alternative build
@@ -95,19 +94,15 @@ git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
 ```
 
-Use the `cmdline.txt` and `config.txt` from my code:
+Make this executeable:
 ```
-cp miniMidiOut-src/pi1/cmdline.txt buildroot-2025.02.9/board/raspberrypi/cmdline.txt
-cp miniMidiOut-src/pi1/config.txt buildroot-2025.02.9/board/raspberrypi/config_default.txt
+chmod +x miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99minimidiout
 ```
 
-Look into `buildroot-2025.02.9/board/raspberrypi/genimage.cfg.in` and
-change `size = 32M` into `size = 61M`.
-
-Copy `pkg/` to buildroot packages:
+Add my `pkg` to buildroot packages and add my `pi1_defconfig` file to `configs`:
 ```
-mkdir -p buildroot-2025.02.9/package/minimidiout
-cp miniMidiOut-src/pkg/* buildroot-2025.02.9/package/minimidiout/
+cp -r miniMidiOut-src/pkg buildroot-2025.02.9/package/minimidiout
+cp miniMidiOut-src/pi1/pi1_defconfig buildroot-2025.02.9/configs/
 ```
 
 Change into buildroot:
@@ -120,57 +115,17 @@ Add this line into `package/Config.in` e.g. in the menu *Audio and video applica
 	source "package/minimidiout/Config.in"
 ```
 
-Make this executeable:
-```
-chmod +x ../miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99minimidiout
-```
-
 Make a default pi1 config and start menuconfig:
 ```
 unset LD_LIBRARY_PATH
-make raspberrypi_defconfig
+make pi1_defconfig
 make menuconfig
 ```
-
-Select/set this:
-
-- System configuration: () Root filesystem overlay directories
-  - set the () empty to `../miniMidiOut-src/pi1/rootfs-overlay`
-- Target packages: Audio and video applications
-  - miniMidiOut
-  - alsa-utils
-    - alsactl
-    - alsamixer
-    - amidi (optional)
-    - amixer
-    - aplay (optional)
-    - aseqdump
-  - sox (optional)
-- Target packages: Hardware handling
-  - firmware
-    - (keep the pi0/1/2/3 pre selected untouched)
-    - Install DTB overlays
-  - evtest (optional)
-- Target packages: Libraries: Audio/Sound
-  - alsa-lib
-    - everything!
-    - especially *alsa-plugins*
-  - portaudio (alsa)
-- Filesystem images:
-  - cpio the root filesystem
-    - compression method (gzip)
-  - keep selected ext2/3/4
-- Kernel
-  - Kernel version (Latest CIP RT SLTS version (5.10.162-cip24-rt10))
-  - Kernel configuration (Using a custom config file)
-  - ( linux.config ) Path to the configuration file
-  - (bcm2835-rpi-b-rev2 bcm2835-rpi-b bcm2835-rpi-b-plus bcm2835-rpi-zero) In-tree Device Tree Source file names
 
 Save as `.config`.
 
 then do:
 ```
-touch linux.config
 make linux-menuconfig
 ```
 
@@ -181,48 +136,7 @@ make linux-menuconfig
   - boot config support
 - kernel features
   - Timer frequency (1000 Hz)
-- System Type
-  - Broadcom SoC Support
-    - BCM2835 SoC support
 
-- Device Drivers
-  - MMC/SD/SDIO card support 
-    - MMC block device driver
-    - Broadcom BCM2835 MMC/SD host controller
-  - USB support
-    - Support for Host-side USB
-    - OTG support
-    - OHCI HCD (USB 1.1) support
-    - Generic OHCI driver for a platform device 
-  - HID support
-    - USB HID support
-      - USB HID transport layer
-  - Sound card support
-    - <*> Advanced Linux Sound Architecture
-      - [*] Enable OSS Emulation
-        - <*> OSS Mixer API
-        - <*> OSS PCM (digital audio) API
-      - <*> Sequencer support
-        - <*> OSS Sequencer API 
-      - [*] USB sound devices
-        - <*> USB Audio/MIDI driver
-          - [*] MIDI 2.0 support by USB Audio drive
-  - GPIO Support
-    - /sys/class/gpio/... (sysfs)
-  - Pulse-Width Modulation (PWM) Support
-    - BCM2835 PWM support
-  - Graphics support
-    - Frame buffer Devices
-      - Support for frame buffer devices
-      - Simple framebuffer support
-  - Device Tree and Open Firmware support
-    - Device Tree overlays
-
-after that:
-```
-cp output/build/linux-5.10.162-cip24-rt10/.config linux.config
-make
-```
 
 ### Pi1 ramdisk
 
@@ -277,9 +191,6 @@ make menuconfig
 - bootloaders
   - syslinux
     - mbr
-
-... (add similar pi1 parts to list)
-
 
 ```
 make linux-menuconfig
