@@ -1,3 +1,6 @@
+# no hdmi sound, only jack audio as default
+hdmi_force_audio=0
+
 start_file=start.elf
 fixup_file=fixup.dat
 
