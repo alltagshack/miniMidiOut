@@ -284,7 +284,7 @@ void *midiReadThread (void *data)
 
     epoll_fd = epoll_create1(0);
     if (epoll_fd == -1) {
-        perror("epoll_create");
+        fprintf(stderr, "error epoll create.\n");
         return NULL;
     }
 
@@ -293,7 +293,7 @@ void *midiReadThread (void *data)
     events[0].events = EPOLLIN;
     events[0].data.fd = midi_fd;
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, midi_fd, &events[0]) == -1) {
-        perror("epoll_ctl: add");
+        fprintf(stderr, "error epoll add.\n");
         free(events);
         close(epoll_fd);
         return NULL;
@@ -330,7 +330,7 @@ void *midiReadThread (void *data)
 
         ret1 = epoll_wait(epoll_fd, events, 2, 200);
         if (ret1 < 0) {
-            perror("epoll_wait");
+            fprintf(stderr, "error epoll wait.\n");
             goto out;
         }
 
@@ -340,6 +340,7 @@ void *midiReadThread (void *data)
 
         /* midi stuff */
         if (events[0].events & (EPOLLERR | EPOLLHUP)) {
+            fprintf(stderr, "error epoll.\n");
             goto out;
         }
 
@@ -475,9 +476,11 @@ int main (int argc, char *argv[])
     midi_fd = open(argv[1], O_RDONLY | O_NONBLOCK);
     if (midi_fd < 0)
     {
+      fprintf(stderr, "wait connecting to %s\n", argv[1]);
       tt_waiting(500);
       continue;
     }
+    printf("Connected to %s\n", argv[1]);
 
     pthread_create(&midi_read_thread, NULL, midiReadThread, &midi_fd);
     pthread_join(midi_read_thread, NULL);

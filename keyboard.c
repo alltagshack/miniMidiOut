@@ -130,7 +130,7 @@ int keyboard_check_event (struct epoll_event *all, unsigned int id)
             } else if ((ev.code == KEY_KPDOT || ev.code == KEY_DOT) && ev.value == 1) {
                 voice_pitch *= 2.0f;
 
-            } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1) {
+            } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 1 && g_sustain == 0) {
                 g_sustain = 1;
             } else if ((ev.code == KEY_KP0 || ev.code == KEY_0) && ev.value == 0) {
                 g_sustain = 0;
