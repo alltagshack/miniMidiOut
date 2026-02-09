@@ -99,11 +99,6 @@ git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
 ```
 
-Make this executeable:
-```
-chmod +x miniMidiOut-src/pi1/rootfs-overlay/etc/init.d/S99minimidiout
-```
-
 Add my `pkg` to buildroot packages and add my `pi1_defconfig` file to `configs`:
 ```
 cp -r miniMidiOut-src/pkg buildroot-2025.02.9/package/minimidiout

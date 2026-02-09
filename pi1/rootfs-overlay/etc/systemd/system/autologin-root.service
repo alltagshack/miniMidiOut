@@ -1,0 +1,16 @@
+[Unit]
+Description=Autologin root on the primary console
+After=systemd-udev-trigger.service
+Wants=systemd-udev-trigger.service
+Conflicts=getty@tty1.service
+Before=multi-user.target
+
+[Service]
+# agetty ist das klassische getty‑Programm, das systemd nutzt.
+ExecStart=-/sbin/agetty --autologin root --noclear tty1 $TERM
+Type=idle
+Restart=always
+RestartSec=0
+
+[Install]
+WantedBy=multi-user.target

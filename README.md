@@ -41,7 +41,7 @@ With these files/images the system boots a minimal Linux and autostarts `miniMid
 - press `3` for square
 - press `4` for triangle
 - press `5` for noise
-- press `0` for sustain
+- press `0` for sustain (is a bit buggy)
 
 Change fading out the tone (release):
 
