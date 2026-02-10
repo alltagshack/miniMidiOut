@@ -97,17 +97,13 @@ Check out my code as `miniMidiOut-src` and get/uncompress `buildroot-2025.02.9.t
 ```
 git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
+cd buildroot-2025.02.9/
 ```
 
 Add my `pkg` to buildroot packages and add my `pi1_defconfig` file to `configs`:
 ```
-cp -r miniMidiOut-src/pkg buildroot-2025.02.9/package/minimidiout
-cp miniMidiOut-src/pi1/pi1_defconfig buildroot-2025.02.9/configs/
-```
-
-Change into buildroot:
-```
-cd buildroot-2025.02.9/
+cp -r ../miniMidiOut-src/pkg package/minimidiout
+cp ../miniMidiOut-src/pi1/pi1_defconfig configs/
 ```
 
 Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
