@@ -1,3 +1,6 @@
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 
+amixer sset PCM unmute
+amixer sset PCM 100%
+
 miniMidiOut /dev/midi1 saw

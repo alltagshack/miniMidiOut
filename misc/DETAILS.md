@@ -145,6 +145,8 @@ make linux-menuconfig
       - [*] USB sound devices
         - <*> USB Audio/MIDI driver
 
+Save as `.config`.
+
 ```
 make
 ```
