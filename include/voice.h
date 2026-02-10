@@ -5,7 +5,9 @@
 
 #define VOICE_MAX             16
 #define VOICE_PITCH           440.0f
-#define VOICE_PITCHBEND_RANGE (2.0f / 12.0f)
+
+/* 2/12 = range of 2 half notes */
+#define VOICE_PITCHBEND_RANGE (4.0f / 12.0f)
 
 typedef struct Voice_s {
   unsigned char note;

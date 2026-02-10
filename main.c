@@ -237,6 +237,7 @@ PaError midi_parse_byte (unsigned char b, PaStream *stream)
         else if (status == 0xB0 && note == 0x40) {
             err = play(stream, 0xB0 | channel, note, vel);
         }
+        /* BITCH BEND */
         else if (status == 0xE0) {
           int value = (vel << 7) | data1;
           voice_pitchbend = ((float)value - 8192.0f) / 8192.0f;

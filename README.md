@@ -41,7 +41,7 @@ With these files/images the system boots a minimal Linux and autostarts `miniMid
 - press `3` for square
 - press `4` for triangle
 - press `5` for noise
-- press `0` for sustain
+- press `0` for sustain (do not use together with sustain pedal)
 
 Change fading out the tone (release):
 
@@ -50,9 +50,9 @@ Change fading out the tone (release):
 - press `8` for no fade out
 - press `9` toggles
   - automatic fade out on
-  - automatic fade off
-  - glissando up
-  - glissando down
+  - automatic fade out off
+  - if release the key, the freqency goes up
+  - if release the key, the freqency goes down
 
 Change octave:
 
@@ -62,7 +62,7 @@ Change octave:
 ## Feature (MIDI keyboard)
 
 - velocity
-- pitch bend
+- pitch bend (+/- 4 half tones)
 - sustain pedal
 
 Switch through the waveforms **saw**, **square**, **triangle**, **noise** and **sinus**:
