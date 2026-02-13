@@ -100,47 +100,25 @@ tar -xzf buildroot-2025.02.9.tar.gz
 cd buildroot-2025.02.9/
 ```
 
-Add my `pkg` to buildroot packages and add my `pi1_defconfig` file to `configs`:
-```
-cp -r ../miniMidiOut-src/pkg package/minimidiout
-cp ../miniMidiOut-src/pi1/pi1_defconfig configs/
-```
-
 Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
-	source "package/minimidiout/Config.in"
+	source "../miniMidiOut-src/pkg/Config.in"
 ```
 
-Make a default pi1 config and start menuconfig:
+Use my config file and start menuconfig:
 ```
 unset LD_LIBRARY_PATH
-make pi1_defconfig
+cp ../miniMidiOut-src/pi1/buildroot.config .config
 make menuconfig
 ```
+Change nothing and save as `.config`.
 
-Save as `.config`.
-
-then do:
 ```
 make linux-menuconfig
 ```
+Change nothing and save as `.config`.
 
-- general setup
-  - Preemption Model (Fully Preemptible Kernel (Real-Time))
-  - boot config support
-- Kernel Features
-  - Timer frequency (1000 Hz)
-- Device Drivers
-  - Sound card support
-    - <*> Advanced Linux Sound Architecture
-      - [*] Enable OSS Emulation
-        - <*> OSS Mixer API
-        - <*> OSS PCM (digital audio) API
-      - <*> Sequencer support
-        - <*> OSS Sequencer API 
-      - [*] USB sound devices
-        - <*> USB Audio/MIDI driver
-
+then do:
 ```
 make
 ```
@@ -182,10 +160,11 @@ git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 chmod +x miniMidiOut-src/eeepc_4G_701/rootfs-overlay/etc/init.d/S99minimidiout
 cd buildroot-2025.02.9
 unset LD_LIBRARY_PATH
-make qemu_x86_defconfig
-cp ../miniMidiOut-src/eeepc_4G_701/buildroot-2025.02.9-config.txt .config
+cp ../miniMidiOut-src/eeepc_4G_701/buildroot.config .config
 make menuconfig
 ```
+
+add/check this:
 
 - Target options
   - Target Architecture: x86
@@ -203,18 +182,26 @@ make menuconfig
 make linux-menuconfig
 ```
 
-same like pi1, but add this:
+add/check this:
 
-- Device Drivers: Sound card support
-  - <*> Advanced Linux Sound Architecture
-    - HD Audio
-      - <*> HD Audio PCI
-      - [*] Build hwdep interface for HD-audio driver
-      - <*> Build Realtek HD-audio codec support
+- Device Drivers
+  - Sound card support
+    - <*> Advanced Linux Sound Architecture
+      - [*] Enable OSS Emulation
+        - <*> OSS Mixer API
+        - <*> OSS PCM (digital audio) API
+      - <*> Sequencer support
+        - <*> OSS Sequencer API 
+      - [*] USB sound devices
+        - <*> USB Audio/MIDI driver
+      - HD Audio
+        - <*> HD Audio PCI
+        - [*] Build hwdep interface for HD-audio driver
+        - <*> Build Realtek HD-audio codec support
 
 or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-5.10.162-cip24-rt10/.config`
 
-Remove both patches inside qemu, because they make not sense on eeepc:
+Remove both patches inside qemu, because they make no sense on eeepc:
 ```
 rm board/qemu/patches/linux/*.patch
 ```
