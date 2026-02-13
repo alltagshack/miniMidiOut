@@ -97,12 +97,18 @@ Check out my code as `miniMidiOut-src` and get/uncompress `buildroot-2025.02.9.t
 ```
 git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 tar -xzf buildroot-2025.02.9.tar.gz
+cp -r miniMidiOut-src/pkg buildroot-2025.02.9/package/minimidiout
 cd buildroot-2025.02.9/
 ```
 
 Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
 ```
-	source "../miniMidiOut-src/pkg/Config.in"
+	source "package/minimidiout/Config.in"
+```
+
+Add this line into `linux/linux.hash`:
+```
+sha256  7d6103116287f4823ced85ad06c942c6d64248fc9ce60dd47cbf0cbfb71ad456  linux-cip-6.1.157-cip48-rt26.tar.gz
 ```
 
 Use my config file and start menuconfig:
@@ -199,7 +205,7 @@ add/check this:
         - [*] Build hwdep interface for HD-audio driver
         - <*> Build Realtek HD-audio codec support
 
-or `cp ../miniMidiOut-src/eeepc_4G_701/kernel-config.txt output/build/linux-5.10.162-cip24-rt10/.config`
+or `cp ../miniMidiOut-src/eeepc_4G_701/kernel.config output/build/linux-5.10.162-cip24-rt10/.config`
 
 Remove both patches inside qemu, because they make no sense on eeepc:
 ```
