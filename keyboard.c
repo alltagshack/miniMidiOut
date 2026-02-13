@@ -24,6 +24,7 @@ static int _fd;
 void keyboard_search (char *keyboardDevice) {
     DIR *dir;
     struct dirent *entry;
+    _fd = -1;
 
     if ((dir = opendir(KEYBOARD_EVENTS)) == NULL)
     {
@@ -72,7 +73,7 @@ void keyboard_search (char *keyboardDevice) {
 
 void keyboard_open (char *dev)
 {
-    keyboard_close();
+    _fd = -1;
 
     _fd = open(dev, O_RDONLY | O_NONBLOCK);
     if (_fd < 0) {

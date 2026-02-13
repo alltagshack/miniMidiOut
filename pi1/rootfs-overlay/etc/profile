@@ -1,3 +1,6 @@
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
 
+modprobe snd-bcm2835
+modprobe snd-usb-audio
+modprobe snd-seq-midi
 miniMidiOut /dev/midi1 saw
