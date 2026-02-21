@@ -1,6 +1,14 @@
 # miniMidiOut
 
-A "fast" midi input to audio output synthesizer with 5 popular waveforms.
+A "fast" (booting) usb-midi input to audio output synthesizer with 5 popular waveforms. It
+supports velocity, pitch bend and sustain.
+
+## Specials
+
+- Pi1 and eeepc is NOT a MUST-HAVE
+- Mainstream CIP RT kernel (6.1.157) for Pi1 and eeepc
+- system runs from RAM, not from SD
+- boots up in 15s on Pi1 and 8s on eeepc
 
 ## It is not realy realtime
 
@@ -11,9 +19,10 @@ Messure delay between key press and audio out:
 
 ## Usage
 
-You can use (and build) the command line interface (CLI) `miniMidiOut` on many Linux systems. It does not use a realtime linux-kernel.
+You can use (and build) the command line interface (CLI) `miniMidiOut` on many Linux systems. It
+does not depend on a realtime linux-kernel.
 
-An alternative way via [Release Files](https://github.com/no-go/miniMidiOut/releases):
+For Pi1 or eeepc use ready to use [Release Files](https://github.com/no-go/miniMidiOut/releases):
 
 - use my Pi1 sd-card content (just a single FAT32 partition is needed)
 - use my sd-card image for the eeepc 4G 701 (32bit Pentium, BIOS boot)
@@ -29,8 +38,8 @@ With these files/images the system boots a minimal Linux and autostarts `miniMid
 5. plugin your headphones to the analog audio
    - pi1: If you use the HDMI plug, the audio signal is there. (not recommended!)
    - pi1: Attention! There is a 4th connection for analog video in the 3.5mm hole :-S
-6. power on the Pi1 (or eeepc)
-7. wait 16 seconds until 3 tones comes up
+6. power on the Pi1 (or eeepc with ESC-key and boot menu)
+7. wait until 3 tones comes up
 8. **enjoy classic synthesizer sounds from the 80th !**
 9. power off the Pi1 (or eeepc)
 
@@ -74,8 +83,7 @@ Switch through the waveforms **saw**, **square**, **triangle**, **noise** and **
 
 ## Bugs
 
-On pi1: hotplug (out) the midi keyboard gives a "urb status -32". If you add `dwc_otg.speed=1` to
-the `cmdline.txt`, it is a fix, but a USB keyboad/numpad will not work.
+Hotplug does not work.
 
 ## Details
 

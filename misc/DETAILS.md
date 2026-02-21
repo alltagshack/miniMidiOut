@@ -171,7 +171,22 @@ and then do just `make` again and copy the new
 tar -xzf buildroot-2025.02.9.tar.gz
 git clone https://github.com/no-go/miniMidiOut.git miniMidiOut-src
 chmod +x miniMidiOut-src/eeepc_4G_701/rootfs-overlay/etc/init.d/S99minimidiout
+cp -r miniMidiOut-src/pkg buildroot-2025.02.9/package/minimidiout
 cd buildroot-2025.02.9
+```
+
+Add this line into `package/Config.in` e.g. in the menu *Audio and video applications*:
+```
+	source "package/minimidiout/Config.in"
+```
+
+Add this line into `linux/linux.hash`:
+```
+sha256  7d6103116287f4823ced85ad06c942c6d64248fc9ce60dd47cbf0cbfb71ad456  linux-cip-6.1.157-cip48-rt26.tar.gz
+```
+
+Use my config file and start menuconfig:
+```
 unset LD_LIBRARY_PATH
 cp ../miniMidiOut-src/eeepc_4G_701/buildroot.config .config
 make menuconfig
@@ -180,7 +195,7 @@ make menuconfig
 add/check this:
 
 - Target options
-  - Target Architecture: x86
+  - Target Architecture: i386
   - Target Architecture Variant: i586   (or i486)
 - System configuration
   - () Root filesystem overlay directories:
@@ -212,12 +227,7 @@ add/check this:
         - [*] Build hwdep interface for HD-audio driver
         - <*> Build Realtek HD-audio codec support
 
-or `cp ../miniMidiOut-src/eeepc_4G_701/kernel.config output/build/linux-5.10.162-cip24-rt10/.config`
-
-Remove both patches inside qemu, because they make no sense on eeepc:
-```
-rm board/qemu/patches/linux/*.patch
-```
+or `cp ../miniMidiOut-src/eeepc_4G_701/kernel.config output/build/linux-custom/.config`
 
 Do the build, now:
 
@@ -225,7 +235,7 @@ Do the build, now:
 make
 ```
 
-If something went wrong, this build makes sense, too:
+If something went wrong, this build makes sometimes sense, too:
 ```
 make host-fakeroot-rebuild
 make host-genimage-rebuild
@@ -252,15 +262,7 @@ cp output/images/rootfs.cpio.gz /tmp/mmc/
 umount /tmp/mmc
 ```
 
-### make an eeepc.img.gz file from SD
-
-from `fdisk -l /dev/sdX` you get `$TOTAL` from `End`+1 (start + size).
-
-as root:
-```
-dd if=/dev/sdX of=eeepc.img bs=512 count=$TOTAL status=progress conv=fsync
-gzip eeepc.img
-```
+You find `mbr.bin`, `rootfs.cpio.gz`, `bzImage` and `syslinux.cfg` in the [release files](https://github.com/no-go/miniMidiOut/releases).
 
 ### Debugging
 
