@@ -12,41 +12,40 @@
 #include <sys/ioctl.h>
 
 #include <sys/epoll.h>
+#include "device.h"
 #include "midi.h"
 
 #include "voice.h"
 #include "player.h"
 #include "globals.h"
 
-static int _fd;
-static unsigned char _midi_byte;
-static unsigned char _running_status = 0;
-static unsigned char _data1 = 0;
-static int _expecting = 0;
-
-static PaError parse_byte ()
+static PaError parse_byte (Device *dev)
 {
     PaError err = paNoError;
+    struct midi_parameters *p;
+
+    if (dev == NULL) return -1;
+    p = (struct midi_parameters *) dev->_parameters;
 
     /* Status byte? */
-    if (_midi_byte & 0x80) {
-        _running_status = _midi_byte;
-        _expecting = 1;
+    if (p->midi_byte & 0x80) {
+        p->running_status = p->midi_byte;
+        p->expecting = 1;
         return err;
     }
 
     /* Data byte */
-    if (_expecting == 1) {
-        _data1 = _midi_byte;
-        _expecting = 2;
+    if (p->expecting == 1) {
+        p->data = p->midi_byte;
+        p->expecting = 2;
         return err;
     }
 
-    if (_expecting == 2) {
-        unsigned char status = _running_status & 0xF0;
-        unsigned char channel = _running_status & 0x0F;
-        unsigned char note = _data1;
-        unsigned char vel = _midi_byte;
+    if (p->expecting == 2) {
+        unsigned char status = p->running_status & 0xF0;
+        unsigned char channel = p->running_status & 0x0F;
+        unsigned char note = p->data;
+        unsigned char vel = p->midi_byte;
 
         /* NOTE ON */
         if (status == 0x90 && vel > 0) {
@@ -64,40 +63,22 @@ static PaError parse_byte ()
         }
         /* BITCH BEND */
         else if (status == 0xE0) {
-          int value = (vel << 7) | _data1;
+          int value = (vel << 7) | p->data;
           voice_pitchbend = ((float)value - 8192.0f) / 8192.0f;
         }
-        _expecting = 1; /* ready for next event */
+        p->expecting = 1; /* ready for next event */
     }
     return err;
 }
 
-
-int midi_open (char *dev)
+static int add_poll (Device *dev, struct epoll_event *all, unsigned int id, int epoll_fd)
 {
-    _fd = -1;
+    if (dev == NULL) return -1;
 
-    _fd = open(dev, O_RDONLY | O_NONBLOCK);
-    if (_fd < 0) {
-        fprintf(stderr, "error open device %s\n", dev);
-        return -1;
-    }
-    return 0;
-}
-
-void midi_close (void)
-{
-    if (_fd >= 0) {
-        close(_fd);
-    }
-}
-
-int midi_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd)
-{
-    if (_fd >= 0) {
+    if (dev->_fd >= 0) {
         all[id].events = EPOLLIN;
-        all[id].data.fd = _fd;
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _fd, &all[id]) == -1) {
+        all[id].data.fd = dev->_fd;
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dev->_fd, &all[id]) == -1) {
             fprintf(stderr, "error epoll add.\n");
             return -1;
         }
@@ -105,19 +86,23 @@ int midi_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd)
     return 0;
 }
 
-int midi_check_event (struct epoll_event *all, unsigned int id)
+static int check_poll (Device *dev, struct epoll_event *all, unsigned int id)
 {
     PaError err;
     ssize_t n;
+    struct midi_parameters *p;
 
-    if ((_fd >= 0) && (all[id].events & EPOLLIN))
+    if (dev == NULL) return -1;
+    p = (struct midi_parameters *) dev->_parameters;
+
+    if ((dev->_fd >= 0) && (all[id].events & EPOLLIN))
     {
         while (g_keepRunning) {
-            n = read(_fd, &_midi_byte, 1);
+            n = read(dev->_fd, &p->midi_byte, 1);
 
             if (n > 0) {
                 
-                err = parse_byte();
+                err = parse_byte(dev);
                 if (err) return -1;
                 
             } else if (n == 0) {
@@ -141,4 +126,20 @@ int midi_check_event (struct epoll_event *all, unsigned int id)
         }
     }
     return 0;
+}
+
+Device dMidi;
+static struct midi_parameters parameters = {
+    .expecting = 0,
+    .running_status = 0,
+    .data = 0
+};
+
+void midi_init() {
+    dMidi._fd = -1;
+    dMidi._parameters = &parameters;
+    dMidi.open = NULL;
+    dMidi.close = NULL;
+    dMidi.add_poll = add_poll;
+    dMidi.check_poll = check_poll;
 }

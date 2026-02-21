@@ -28,6 +28,7 @@
 #include "time_tools.h"
 #include "keyboard.h"
 #include "midi.h"
+#include "device.h"
 #include "player.h"
 #include "globals.h"
 
@@ -162,7 +163,7 @@ void *midiReadThread (void *dummy)
 
     events = calloc(2, sizeof(struct epoll_event));
     
-    if (midi_add_poll(events, 0, epoll_fd) < 0) {
+    if (device_add_poll(&dMidi, events, 0, epoll_fd) < 0) {
         fprintf(stderr, "error epoll add for midi.\n");
         free(events);
         close(epoll_fd);
@@ -205,7 +206,7 @@ void *midiReadThread (void *dummy)
             goto out;
         }
 
-        ret2 = midi_check_event(events, 0);
+        ret2 = device_check_poll(&dMidi, events, 0);
         if (ret2 < 0) goto error;
         if (ret2 == 1) goto out;
 
@@ -312,11 +313,13 @@ int main (int argc, char *argv[])
 
   pr_seed((uint32_t)time(NULL));
   sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL); 
+  sigaction(SIGTERM, &sa, NULL);
+
+  midi_init();
 
   while (g_keepRunning)
   {
-    if (midi_open(argv[1]) < 0)
+    if (device_open(&dMidi, argv[1]) < 0)
     {
       fprintf(stderr, "wait connecting to %s\n", argv[1]);
       tt_waiting(500);
@@ -329,7 +332,7 @@ int main (int argc, char *argv[])
 
     tt_waiting(200);
     
-    midi_close();
+    device_close(&dMidi);
   }
 
   keyboard_close();

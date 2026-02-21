@@ -26,7 +26,17 @@ if(NOT MATH_LIBRARY)
 endif()
 
 add_executable(miniMidiOut
-    main.c modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c midi.c player.c globals.c)
+    main.c
+    modus.c
+    pseudo_random.c
+    time_tools.c
+    voice.c
+    noise.c
+    device.c
+    keyboard.c
+    midi.c
+    player.c
+    globals.c)
 
 target_include_directories(miniMidiOut PRIVATE
     include)
