@@ -13,7 +13,7 @@
 
 #include <sys/epoll.h>
 #include "device.h"
-#include "midi.h"
+#include "device/midi.h"
 
 #include "voice.h"
 #include "player.h"

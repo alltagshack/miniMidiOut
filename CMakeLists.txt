@@ -33,8 +33,8 @@ add_executable(miniMidiOut
     voice.c
     noise.c
     device.c
-    keyboard.c
-    midi.c
+    device/keyboard.c
+    device/midi.c
     player.c
     globals.c)
 

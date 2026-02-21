@@ -13,7 +13,7 @@
 
 #include <sys/epoll.h>
 #include "device.h"
-#include "keyboard.h"
+#include "device/keyboard.h"
 
 #include "modus.h"
 #include "voice.h"
