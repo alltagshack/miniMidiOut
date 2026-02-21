@@ -13,9 +13,26 @@
  */
 void keyboard_search (char *result);
 
-void keyboard_open (char *dev);
+/**
+ * @brief open a keyboard device
+ 
+ * @param dev pointer to char array with "/dev/..."
+ *
+ * @return 0 on success, -1 on error
+ */
+int keyboard_open (char *dev);
+
 void keyboard_close (void);
-void keyboard_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd);
+
+/**
+ * @brief check a poll for a keyboard event
+ 
+ * @param all pointer to poll array
+ * @param id  index in poll array
+ *
+ * @return 0 on success, -1 on error
+ */
+int keyboard_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd);
 
 /**
  * @brief check a poll for a keyboard event

@@ -71,14 +71,16 @@ void keyboard_search (char *keyboardDevice) {
     closedir(dir);
 }
 
-void keyboard_open (char *dev)
+int keyboard_open (char *dev)
 {
     _fd = -1;
 
     _fd = open(dev, O_RDONLY | O_NONBLOCK);
     if (_fd < 0) {
         fprintf(stderr, "missing a letter keyboard as event device %s\n", dev);
+        return -1;
     }
+    return 0;
 }
 
 void keyboard_close (void)
@@ -88,14 +90,17 @@ void keyboard_close (void)
     }
 }
 
-void keyboard_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd)
+int keyboard_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd)
 {
     if (_fd >= 0) {
-        /* keyboard as last poll element */
-        all[id].events = EPOLLIN; 
+        all[id].events = EPOLLIN;
         all[id].data.fd = _fd;
-        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _fd, &all[id]);
+        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _fd, &all[id]) == -1) {
+            fprintf(stderr, "error epoll add.\n");
+            return -1;
+        }
     }
+    return 0;
 }
 
 int keyboard_check_event (struct epoll_event *all, unsigned int id)

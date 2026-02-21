@@ -18,7 +18,6 @@
 #include <poll.h>
 #include <sys/epoll.h>
 
-#include <errno.h>
 #include <sched.h>
 #include <sys/mman.h>
 
@@ -28,6 +27,8 @@
 #include "pseudo_random.h"
 #include "time_tools.h"
 #include "keyboard.h"
+#include "midi.h"
+#include "player.h"
 #include "globals.h"
 
 static int audioCallback (const void *inputBuffer, void *outputBuffer,
@@ -122,166 +123,36 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
   return paContinue;
 }
 
-PaError play (PaStream *stream, unsigned char status, unsigned char note, unsigned char vel)
-{
-  static unsigned int count    = 0;
-  static unsigned int start_ms = 0;
-  static unsigned int now_ms = 0;
-  static int old_sustain = 0;
-  float freq;
-  Voice *userData;
-
-  if ((status & 0xF0) == 0x90 && vel > 0) {
-    freq = voice_midi2freq(&note);
-
-    //printf("%.2f Hz (%d)\n", freq, vel);
-
-    userData = voice_get();
-
-    voice_active++;
-    userData->note = note;
-    userData->freq = freq;
-    userData->active = (g_autoFading == 1)? 2 : 1;
-    userData->phase = 0.0;
-    userData->volume = 0.7f * ((float)vel / 127.0f);
-    userData->envelope = g_envelopeSamples;
-
-    if (modus == NOISE) noise_prepare(userData);
-
-    if (Pa_IsStreamStopped(stream)) {
-      PaError err = Pa_StartStream(stream);
-      if (err != paNoError) return err;
-    }
-
-  } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
-    now_ms = tt_now();
-
-    if (vel == 0x7F) g_sustain = 1;
-    if (vel == 0x00) g_sustain = 2;
-
-    if (old_sustain == 1 && g_sustain == 2) {
-      /* release sustain */
-      g_sustain = 0;
-    }
-
-    if (old_sustain == 1 && (g_sustain == 0 || g_sustain == 2) && Pa_IsStreamStopped(stream)) {
-      if (count == 0) start_ms = now_ms;
-      count++;
-    }
-
-    if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
-      count = 0;
-    }
-
-    //printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n", old_sustain, g_sustain, count, voice_active);
-
-    if (count >= SUSTAIN_NEEDED)
-    {
-      count = 0;
-      modus_switch('\0');
-    }
-
-    old_sustain = g_sustain;
-
-  } else if ((status & 0xF0) == 0x80 ||
-            ((status & 0xF0) == 0x90 && vel == 0)) {
-
-    userData = voice_find_by_note(&note);
-    if (userData) {
-      userData->active = 2;
-    }
-  }
-
-  return paNoError;
-}
-
-static unsigned char running_status = 0;
-static unsigned char data1 = 0;
-static int expecting = 0;
-
-PaError midi_parse_byte (unsigned char b, PaStream *stream)
-{
-    PaError err = paNoError;
-
-    /* Status byte? */
-    if (b & 0x80) {
-        running_status = b;
-        expecting = 1;
-        return err;
-    }
-
-    /* Data byte */
-    if (expecting == 1) {
-        data1 = b;
-        expecting = 2;
-        return err;
-    }
-
-    if (expecting == 2) {
-        unsigned char status = running_status & 0xF0;
-        unsigned char channel = running_status & 0x0F;
-        unsigned char note = data1;
-        unsigned char vel = b;
-
-        /* NOTE ON */
-        if (status == 0x90 && vel > 0) {
-            err = play(stream, 0x90 | channel, note, vel);
-        }
-
-        /* NOTE OFF */
-        else if (status == 0x80 || (status == 0x90 && vel == 0)) {
-            err = play(stream, 0x80 | channel, note, vel);
-        }
-
-        /* SUSTAIN PEDAL */
-        else if (status == 0xB0 && note == 0x40) {
-            err = play(stream, 0xB0 | channel, note, vel);
-        }
-        /* BITCH BEND */
-        else if (status == 0xE0) {
-          int value = (vel << 7) | data1;
-          voice_pitchbend = ((float)value - 8192.0f) / 8192.0f;
-        }
-        expecting = 1; /* ready for next event */
-    }
-    return err;
-}
-
-static PaError _theme (PaStream *stream)
+static PaError _theme (void)
 {
   PaError err = paNoError;
 
-  err = play (stream, 0x90, 0x30, 0x42);
+  err = play(0x90, 0x30, 0x42);
   if (err != paNoError) return err;
   tt_waiting(500);
-  err = play (stream, 0x90, 0x32, 0x42);
+  err = play(0x90, 0x32, 0x42);
   if (err != paNoError) return err;
   tt_waiting(500);
-  err = play (stream, 0x90, 0x34, 0x42);
+  err = play(0x90, 0x34, 0x42);
   if (err != paNoError) return err;
   tt_waiting(500);
 
-  err = play (stream, 0x90, 0x30, 0x0);
+  err = play(0x90, 0x30, 0x0);
   if (err != paNoError) return err;
-  err = play (stream, 0x90, 0x32, 0x0);
+  err = play(0x90, 0x32, 0x0);
   if (err != paNoError) return err;
-  err = play (stream, 0x90, 0x34, 0x0);
+  err = play(0x90, 0x34, 0x0);
 
   return err;
 }
 
-void *midiReadThread (void *data)
+void *midiReadThread (void *dummy)
 {
-    unsigned char midi_byte;
-    PaStream *stream;
     PaError err;
-    PaStreamParameters params;
     int ret1, ret2;
 
-    int midi_fd = *((int *)data);
     int epoll_fd;
     struct epoll_event *events;
-    ssize_t n;
 
     epoll_fd = epoll_create1(0);
     if (epoll_fd == -1) {
@@ -291,41 +162,30 @@ void *midiReadThread (void *data)
 
     events = calloc(2, sizeof(struct epoll_event));
     
-    events[0].events = EPOLLIN;
-    events[0].data.fd = midi_fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, midi_fd, &events[0]) == -1) {
-        fprintf(stderr, "error epoll add.\n");
+    if (midi_add_poll(events, 0, epoll_fd) < 0) {
+        fprintf(stderr, "error epoll add for midi.\n");
         free(events);
         close(epoll_fd);
         return NULL;
     }
 
-    keyboard_add_poll(events, 1, epoll_fd);
+    if (keyboard_add_poll(events, 1, epoll_fd) < 0) {
+      fprintf(stderr, "ignore keyboard\n");
+    }
     
     err = Pa_Initialize();
     if (err != paNoError) goto error;
 
-    if (g_outputDeviceId >= 0) {
-        params.device = g_outputDeviceId;
-        params.channelCount = 2;
-        params.sampleFormat = paFloat32;
-        params.suggestedLatency = Pa_GetDeviceInfo(g_outputDeviceId)->defaultLowOutputLatency;
-        params.hostApiSpecificStreamInfo = NULL;
-
-        err = Pa_OpenStream(&stream, NULL, &params, g_sampleRate, g_bufferSize, paClipOff, audioCallback, NULL);
-    } else {
-        err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, g_sampleRate, g_bufferSize, audioCallback, NULL);
-    }
-    
+    err = player_open(audioCallback);
     if (err != paNoError) goto error;
 
-    err = _theme(stream);
+    err = _theme();
     if (err != paNoError) goto error;
 
     while (g_keepRunning) {
-        if (voice_active < 1 && Pa_IsStreamActive(stream)) {
+        if (voice_active < 1 && player_is_active()) {
             voice_active = 0;
-            err = Pa_StopStream(stream);
+            err = player_stop();
             if (err != paNoError) goto error;
         }
 
@@ -345,28 +205,9 @@ void *midiReadThread (void *data)
             goto out;
         }
 
-        if (events[0].events & EPOLLIN) {
-            
-            while (g_keepRunning) {
-                n = read(midi_fd, &midi_byte, 1);
-
-                if (n > 0) {
-                  
-                  err = midi_parse_byte(midi_byte, stream);
-                  if (err) goto error;
-                  
-                } else if (n == 0) {
-                    break;
-                } else {
-                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                        break;
-                    } if (errno == ENODEV || errno == EIO || errno == EPIPE || errno == EBADFD) {
-                        goto out;
-                    }
-                    break;
-                }
-            }
-        }
+        ret2 = midi_check_event(events, 0);
+        if (ret2 < 0) goto error;
+        if (ret2 == 1) goto out;
 
     } /* end while */
 
@@ -374,12 +215,12 @@ void *midiReadThread (void *data)
 
 out:
 
-    if (Pa_IsStreamActive(stream)) {
-        err = Pa_StopStream(stream);
+    if (player_is_active()) {
+        err = player_stop();
         if (err != paNoError) goto error;
     }
 
-    err = Pa_CloseStream(stream);
+    err = player_close();
 
 error:
     if (err != paNoError) 
@@ -400,7 +241,6 @@ int main (int argc, char *argv[])
   pthread_t midi_read_thread;
   char m = '\0';
   struct sigaction sa;
-  int midi_fd;
   struct sched_param param;
 
   param.sched_priority = 50;
@@ -460,7 +300,9 @@ int main (int argc, char *argv[])
     g_envelopeSamples = atoi(argv[6]);
   }
   if (argc >= 8) {
-    keyboard_open(argv[7]);
+    if (keyboard_open(argv[7]) < 0) {
+      fprintf(stderr, "ignore invalid keyboard\n");
+    };
   } else {
     keyboard_search(keyboardDevice);
   }
@@ -474,8 +316,7 @@ int main (int argc, char *argv[])
 
   while (g_keepRunning)
   {
-    midi_fd = open(argv[1], O_RDONLY | O_NONBLOCK);
-    if (midi_fd < 0)
+    if (midi_open(argv[1]) < 0)
     {
       fprintf(stderr, "wait connecting to %s\n", argv[1]);
       tt_waiting(500);
@@ -483,12 +324,12 @@ int main (int argc, char *argv[])
     }
     printf("Connected to %s\n", argv[1]);
 
-    pthread_create(&midi_read_thread, NULL, midiReadThread, &midi_fd);
+    pthread_create(&midi_read_thread, NULL, midiReadThread, NULL);
     pthread_join(midi_read_thread, NULL);
 
     tt_waiting(200);
     
-    if (midi_fd >= 0) close(midi_fd);
+    midi_close();
   }
 
   keyboard_close();
