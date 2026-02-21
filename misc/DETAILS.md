@@ -74,7 +74,12 @@ On debian or ubuntu you need these packages:
 
 ```
 gcc main.c \
-    modus.c pseudo_random.c time_tools.c voice.c noise.c keyboard.c globals.c \
+    modus.c pseudo_random.c time_tools.c voice.c noise.c \
+    device.c \
+    device/keyboard.c \
+    device/midi.c \
+    player.c \
+    globals.c \
     -Wall -Iinclude/ -lm -lportaudio -pthread -o miniMidiOut
 ```
 
@@ -124,8 +129,10 @@ make linux-menuconfig
 ```
 Change nothing and save as `.config`.
 
-then do:
+then do (again):
 ```
+cp ../miniMidiOut-src/pi1/kernel.config output/build/linux-custom/.config
+make linux-menuconfig
 make
 ```
 
