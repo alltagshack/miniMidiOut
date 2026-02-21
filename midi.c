@@ -71,21 +71,6 @@ static PaError parse_byte (Device *dev)
     return err;
 }
 
-static int add_poll (Device *dev, struct epoll_event *all, unsigned int id, int epoll_fd)
-{
-    if (dev == NULL) return -1;
-
-    if (dev->_fd >= 0) {
-        all[id].events = EPOLLIN;
-        all[id].data.fd = dev->_fd;
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, dev->_fd, &all[id]) == -1) {
-            fprintf(stderr, "error epoll add.\n");
-            return -1;
-        }
-    }
-    return 0;
-}
-
 static int check_poll (Device *dev, struct epoll_event *all, unsigned int id)
 {
     PaError err;
@@ -140,6 +125,6 @@ void midi_init() {
     dMidi._parameters = &parameters;
     dMidi.open = NULL;
     dMidi.close = NULL;
-    dMidi.add_poll = add_poll;
+    dMidi.add_poll = NULL;
     dMidi.check_poll = check_poll;
 }

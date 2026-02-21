@@ -170,7 +170,7 @@ void *midiReadThread (void *dummy)
         return NULL;
     }
 
-    if (keyboard_add_poll(events, 1, epoll_fd) < 0) {
+    if (device_add_poll(&dKeyboard, events, 1, epoll_fd) < 0) {
       fprintf(stderr, "ignore keyboard\n");
     }
     
@@ -196,7 +196,7 @@ void *midiReadThread (void *dummy)
             goto out;
         }
 
-        ret2 = keyboard_check_event(events, 1);
+        ret2 = device_check_poll(&dKeyboard, events, 1);
         if (ret2 < 0) break;
 
 
@@ -266,6 +266,9 @@ int main (int argc, char *argv[])
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
 
+  midi_init();
+  keyboard_init();
+
   if (argc < 2) {
     fprintf(stderr, "example usage:\n");
     fprintf(stderr, "\t%s /dev/midi3 [sin|saw|sqr|tri|noi]\n", argv[0]);
@@ -301,11 +304,11 @@ int main (int argc, char *argv[])
     g_envelopeSamples = atoi(argv[6]);
   }
   if (argc >= 8) {
-    if (keyboard_open(argv[7]) < 0) {
+    if (device_open(&dKeyboard, argv[7]) < 0) {
       fprintf(stderr, "ignore invalid keyboard\n");
     };
   } else {
-    keyboard_search(keyboardDevice);
+    keyboard_search(&dKeyboard, keyboardDevice);
   }
   if (argc == 9) {
     g_sampleRate = atoi(argv[8]);
@@ -314,8 +317,6 @@ int main (int argc, char *argv[])
   pr_seed((uint32_t)time(NULL));
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
-
-  midi_init();
 
   while (g_keepRunning)
   {
@@ -335,6 +336,6 @@ int main (int argc, char *argv[])
     device_close(&dMidi);
   }
 
-  keyboard_close();
+  device_close(&dKeyboard);
   return 0;
 }

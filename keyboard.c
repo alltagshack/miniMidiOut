@@ -12,19 +12,24 @@
 #include <sys/ioctl.h>
 
 #include <sys/epoll.h>
+#include "device.h"
 #include "keyboard.h"
 
 #include "modus.h"
 #include "voice.h"
 #include "globals.h"
 
-static int _fd;
-
-
-void keyboard_search (char *keyboardDevice) {
+void keyboard_search (Device *dev, char *keyboardDevice) {
     DIR *dir;
     struct dirent *entry;
-    _fd = -1;
+
+    if (dev == NULL)
+    {
+        fprintf(stderr, "missing pointer to device 'keyboard'\n");
+        keyboardDevice[0] = '\0';
+        return;
+    }
+    dev->_fd = -1;
 
     if ((dir = opendir(KEYBOARD_EVENTS)) == NULL)
     {
@@ -47,13 +52,13 @@ void keyboard_search (char *keyboardDevice) {
                 entry->d_name
             );
 
-            _fd = open(keyboardDevice, O_RDONLY | O_NONBLOCK);
-            if (_fd < 0) {
+            dev->_fd = open(keyboardDevice, O_RDONLY | O_NONBLOCK);
+            if (dev->_fd < 0) {
                 fprintf(stderr, "problem to open %s\n", keyboardDevice);
                 continue;
             }
 
-            ioctl(_fd, EVIOCGNAME(sizeof(name)), name);
+            ioctl(dev->_fd, EVIOCGNAME(sizeof(name)), name);
 
             if (strstr(name, KEYBOARD_SEARCH_STR) != NULL)
             {
@@ -63,7 +68,7 @@ void keyboard_search (char *keyboardDevice) {
                 return;
             }
 
-            close(_fd);
+            close(dev->_fd);
         }
     }
     /* nothing found */
@@ -71,41 +76,11 @@ void keyboard_search (char *keyboardDevice) {
     closedir(dir);
 }
 
-int keyboard_open (char *dev)
+static int check_poll (Device *dev, struct epoll_event *all, unsigned int id)
 {
-    _fd = -1;
-
-    _fd = open(dev, O_RDONLY | O_NONBLOCK);
-    if (_fd < 0) {
-        fprintf(stderr, "missing a letter keyboard as event device %s\n", dev);
-        return -1;
-    }
-    return 0;
-}
-
-void keyboard_close (void)
-{
-    if (_fd >= 0) {
-        close(_fd);
-    }
-}
-
-int keyboard_add_poll (struct epoll_event *all, unsigned int id, int epoll_fd)
-{
-    if (_fd >= 0) {
-        all[id].events = EPOLLIN;
-        all[id].data.fd = _fd;
-        if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _fd, &all[id]) == -1) {
-            fprintf(stderr, "error epoll add.\n");
-            return -1;
-        }
-    }
-    return 0;
-}
-
-int keyboard_check_event (struct epoll_event *all, unsigned int id)
-{
-   if ((_fd >= 0) && (all[id].events & EPOLLIN))
+    if (dev == NULL) return -1;
+    
+    if ((dev->_fd >= 0) && (all[id].events & EPOLLIN))
     {
         struct input_event ev;
         ssize_t n = read(all[id].data.fd, &ev, sizeof(ev));
@@ -149,4 +124,14 @@ int keyboard_check_event (struct epoll_event *all, unsigned int id)
         }
     }
     return 0;
+}
+
+Device dKeyboard;
+
+void keyboard_init() {
+    dKeyboard._fd = -1;
+    dKeyboard.open = NULL;
+    dKeyboard.close = NULL;
+    dKeyboard.add_poll = NULL;
+    dKeyboard.check_poll = check_poll;
 }
