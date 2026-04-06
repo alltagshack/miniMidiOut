@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define VOICE_DEFAULT_RELEASE     128u
+#define VOICE_FAST_RELEASE         64u
 #define VOICE_SUSTAIN_RELEASE       1u
 
 #define VOICE_MAX                  12
@@ -15,6 +15,9 @@ typedef struct Voice_s
 {
     VoiceState      state;
     uint8_t          note;
+    uint8_t       release;
+    /// if the value is not -1, how many samples this voice has to play the note
+    int16_t          hold;
     uint32_t     freqX100;
     uint32_t       volume;
     uint32_t        phase;
@@ -68,6 +71,5 @@ uint32_t voice_get_freq (uint8_t note);
 
 extern Voice voices[VOICE_MAX];
 extern volatile int voice_active_value;
-extern volatile uint32_t voice_release_value;
 
 #endif

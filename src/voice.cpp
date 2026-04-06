@@ -4,7 +4,6 @@
 
 Voice voices[VOICE_MAX];
 volatile int voice_active_value;
-volatile uint32_t voice_release_value;
 
 Voice *voice_get () {
     for (uint8_t i = 0; i < VOICE_MAX; i++) {
@@ -20,7 +19,7 @@ Voice *voice_get () {
 Voice *voice_find_by_note (const uint8_t note) {
     int i;
     for (i = 0; i < VOICE_MAX; i++) {
-    if ((voices[i].state == VOICE_ON) && voices[i].note == note)
+    if ((voices[i].state != VOICE_OFF) && voices[i].note == note)
         return &voices[i];
     }
     return nullptr;
@@ -32,6 +31,8 @@ void voice_init (Voice *v) {
     v->phase = 0;
     v->volume = 0;
     v->incr = 0;
+    v->hold = -1;
+    v->release = VOICE_SUSTAIN_RELEASE;
 }
 
 uint32_t voice_get_freq (uint8_t note) {
