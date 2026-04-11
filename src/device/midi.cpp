@@ -115,9 +115,10 @@ static int check_poll (Device *dev, struct epoll_event *all, unsigned int id)
 
 Device dMidi;
 static struct midi_parameters parameters = {
-    .expecting = 0,
+    .midi_byte = 0,
     .running_status = 0,
-    .data = 0
+    .data = 0,
+    .expecting = 0
 };
 
 void midi_init() {

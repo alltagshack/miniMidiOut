@@ -1,8 +1,5 @@
-cmake_minimum_required(VERSION 3.15)
-project(miniMidiOut C)
-
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+cmake_minimum_required(VERSION 3.16)
+project(miniMidiOut CXX)
 
 find_library(PORTAUDIO_LIBRARY portaudio)
 if(NOT PORTAUDIO_LIBRARY)
@@ -25,21 +22,24 @@ if(NOT MATH_LIBRARY)
         "Install the Debian package: libc6-dev (contains libm).")
 endif()
 
-add_executable(miniMidiOut
-    main.c
-    modus.c
-    pseudo_random.c
-    time_tools.c
-    voice.c
-    noise.c
-    device.c
-    device/keyboard.c
-    device/midi.c
-    player.c
-    globals.c)
+set(SOURCES
+    src/main.cpp
+    src/modus.cpp
+    src/pseudo_random.cpp
+    src/time_tools.cpp
+    src/voice.cpp
+    src/noise.cpp
+    src/device.cpp
+    src/device/keyboard.cpp
+    src/device/midi.cpp
+    src/player.cpp
+    src/globals.cpp)
 
-target_include_directories(miniMidiOut PRIVATE
-    include)
+add_executable(miniMidiOut ${SOURCES})
+target_include_directories(miniMidiOut PRIVATE include)
+
+target_compile_features(miniMidiOut PUBLIC cxx_std_17)
+target_compile_options(miniMidiOut PRIVATE -Wall -Wextra)
 
 target_link_libraries(miniMidiOut
     ${PORTAUDIO_LIBRARY}

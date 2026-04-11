@@ -1,3 +1,0 @@
-export PATH="/bin:/sbin:/usr/bin:/usr/sbin"
-
-#miniMidiOut hw:1,0,0 saw -1 16 10 16000 /dev/input/event5 44100

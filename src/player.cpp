@@ -1,6 +1,9 @@
 #include <portaudio.h>
 #include <unistd.h>
 
+#include <iostream>
+#include <iomanip>
+
 #include "player.h"
 #include "noise.h"
 #include "modus.h"
@@ -75,11 +78,18 @@ PaError play (unsigned char status, unsigned char note, unsigned char vel)
   static int old_sustain = 0;
   float freq;
   Voice *userData;
+  
+  std::cout << std::hex << std::setfill('0')
+    << std::setw(2) << static_cast<int>(status)
+    << ' '
+    << std::setw(2) << static_cast<int>(note)
+    << ' '
+    << std::setw(2) << static_cast<int>(vel)
+    << '\n';
 
   if ((status & 0xF0) == 0x90 && vel > 0) {
     freq = voice_midi2freq(&note);
 
-    //printf("%.2f Hz (%d)\n", freq, vel);
 
     userData = voice_get();
 
@@ -117,8 +127,6 @@ PaError play (unsigned char status, unsigned char note, unsigned char vel)
     if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
       count = 0;
     }
-
-    //printf("old_sustain: 0x%X, sustain: 0x%X, count: %d, activeCount: %d\n", old_sustain, g_sustain, count, voice_active);
 
     if (count >= SUSTAIN_NEEDED)
     {

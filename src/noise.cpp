@@ -29,7 +29,7 @@ void noise_prepare (Voice * const userData)
 
 float noise_filter (Voice * const voice)
 {
-    float n = pr_float();
+    float n = PseudoRandom::instance().floatRnd();
 
     voice->noise_detail.lowpass_state +=
         voice->noise_detail.lowpass_alpha * (n - voice->noise_detail.lowpass_state);

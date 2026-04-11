@@ -3,7 +3,7 @@
 
 int tt_waiting (unsigned int ms)
 {
-  struct timespec req = {0};
+  struct timespec req;
   req.tv_sec  = 0;
   req.tv_nsec = ms * 1000000;
   if (nanosleep(&req, NULL) != 0) {

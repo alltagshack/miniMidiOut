@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <linux/input-event-codes.h>
 #include <portaudio.h>
 #include <math.h>
@@ -161,7 +159,7 @@ void *midiReadThread (void *dummy)
         return NULL;
     }
 
-    events = calloc(2, sizeof(struct epoll_event));
+    events = (struct epoll_event *)calloc(2, sizeof(struct epoll_event));
     
     if (device_add_poll(&dMidi, events, 0, epoll_fd) < 0) {
         fprintf(stderr, "error epoll add for midi.\n");
@@ -314,7 +312,7 @@ int main (int argc, char *argv[])
     g_sampleRate = atoi(argv[8]);
   }
 
-  pr_seed((uint32_t)time(NULL));
+  PseudoRandom::instance().setSeed((uint32_t)time(NULL));
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
 
