@@ -81,11 +81,11 @@ PaError play (unsigned char status, unsigned char note, unsigned char vel)
   
   std::cout << std::hex << std::setfill('0')
     << std::setw(2) << static_cast<int>(status)
-    << ' '
+    << " "
     << std::setw(2) << static_cast<int>(note)
-    << ' '
+    << " "
     << std::setw(2) << static_cast<int>(vel)
-    << '\n';
+    << std::endl;
 
   if ((status & 0xF0) == 0x90 && vel > 0) {
     freq = voice_midi2freq(&note);

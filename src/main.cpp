@@ -5,7 +5,7 @@
 
 #include <pthread.h>
 
-#include <signal.h>
+#include <csignal>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -18,6 +18,11 @@
 
 #include <sched.h>
 #include <sys/mman.h>
+
+#include <map>
+#include <string>
+#include <fstream>
+#include <iostream>
 
 #include "modus.h"
 #include "noise.h"
@@ -231,109 +236,127 @@ error:
     return NULL;
 }
 
+
+std::map<std::string, std::string> parse_config (const std::string & path)
+{
+    std::map<std::string,std::string> cfg;
+    std::ifstream f(path);
+    std::string line;
+    while (std::getline(f,line))
+    {
+        auto pos = line.find('=');
+        if (pos==std::string::npos) continue;
+        std::string k = line.substr(0,pos);
+        std::string v = line.substr(pos+1);
+        // trim simple
+        auto trim = [](std::string &s){
+            while(!s.empty() && isspace((unsigned char)s.front())) s.erase(s.begin());
+            while(!s.empty() && isspace((unsigned char)s.back())) s.pop_back();
+        };
+        trim(k); trim(v);
+        if (!k.empty()) cfg[k]=v;
+    }
+    return cfg;
+}
+
 void handle_sig (int sig) {
     g_keepRunning = 0;
 }
 
 int main (int argc, char *argv[])
 {
-  pthread_t midi_read_thread;
-  char m = '\0';
-  struct sigaction sa;
-  struct sched_param param;
+    pthread_t midi_read_thread;
+    char m = '\0';
+    struct sched_param param;
 
-  param.sched_priority = 50;
-  sched_setscheduler(0, SCHED_FIFO, &param);
+    param.sched_priority = 50;
+    sched_setscheduler(0, SCHED_FIFO, &param);
 
-  mlockall(MCL_CURRENT | MCL_FUTURE);
+    mlockall(MCL_CURRENT | MCL_FUTURE);
 
-  g_autoFading = 0;
-  g_keepRunning = 1;
-  g_sustain = 0;
-  
-  modus = SAW;
-  char keyboardDevice[256];
+    g_autoFading = 0;
+    g_keepRunning = 1;
+    g_sustain = 0;
 
-  g_outputDeviceId = -1;
-  g_bufferSize = DEFAULT_BUFFER_SIZE;
-  g_fading = DEFAULT_FADING;
-  g_envelopeSamples = DEFAULT_ENVELOPE;
-  g_sampleRate = DEFAULT_RATE;
+    modus = SAW;
+    char keyboardDevice[256];
 
-  sa.sa_handler = handle_sig;
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = 0;
+    g_outputDeviceId = -1;
+    g_bufferSize = DEFAULT_BUFFER_SIZE;
+    g_fading = DEFAULT_FADING;
+    g_envelopeSamples = DEFAULT_ENVELOPE;
+    g_sampleRate = DEFAULT_RATE;
 
-  midi_init();
-  keyboard_init();
+    midi_init();
+    keyboard_init();
 
-  if (argc < 2) {
-    fprintf(stderr, "example usage:\n");
-    fprintf(stderr, "\t%s /dev/midi3 [sin|saw|sqr|tri|noi]\n", argv[0]);
-    fprintf(stderr, "\t%s /dev/midi3 saw [outputDeviceId]\n", argv[0]);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 [bufferSize]\n", argv[0]);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d [fade -20 to 100]\n", argv[0], g_bufferSize);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d [envelope]\n", argv[0], g_bufferSize, g_fading);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d [keypad]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d /dev/input/event0 [sampleRate]\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples);
-    fprintf(stderr, "\t%s /dev/midi3 saw -1 %d %d %d /dev/input/event0 %d\n", argv[0], g_bufferSize, g_fading, g_envelopeSamples, g_sampleRate);
-    return 1;
-  }
-  if (argc >= 3) {
-    m = argv[2][1];
-    modus_switch(m);
-  }
-  if (argc >= 4) {
-    g_outputDeviceId = atoi(argv[3]);
-  }
-  if (argc >= 5) {
-    g_bufferSize = atoi(argv[4]);
-  }
-  if (argc >= 6) {
-    g_fading = atoi(argv[5]);
-    if (g_fading == 0) g_fading = 1;
-
-    if (g_fading < 0) {
-      g_autoFading = 1;
-      g_fading *= -1;
+    if (argc < 2) {
+        std::clog << "example usage:\n";
+        std::clog << "\t" << argv[0] << " configFile\n";
+        return 1;
     }
-  }
-  if (argc == 7) {
-    g_envelopeSamples = atoi(argv[6]);
-  }
-  if (argc >= 8) {
-    if (device_open(&dKeyboard, argv[7]) < 0) {
-      fprintf(stderr, "ignore invalid keyboard\n");
-    };
-  } else {
-    keyboard_search(&dKeyboard, keyboardDevice);
-  }
-  if (argc == 9) {
-    g_sampleRate = atoi(argv[8]);
-  }
 
-  PseudoRandom::instance().setSeed((uint32_t)time(NULL));
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
+    auto cfg = parse_config(argv[1]);
+    if (cfg.find("midiDevice") == cfg.end()) {
+        std::clog << "Missing midiDevice in configFile " << argv[1] << "\n";
+        return 1;
+    }
 
-  while (g_keepRunning)
-  {
-    if (device_open(&dMidi, argv[1]) < 0)
+    if (cfg.find("modus") != cfg.end()) {
+        m = cfg["modus"][1];
+        modus_switch(m);
+    }
+    if (cfg.find("outputDeviceId") != cfg.end()) {
+        g_outputDeviceId = stoi(cfg["outputDeviceId"]);
+    }
+    if (cfg.find("bufferSize") != cfg.end()) {
+        g_bufferSize = stoi(cfg["bufferSize"]);
+    }
+    if (cfg.find("fading") != cfg.end()) {
+        g_fading = stoi(cfg["fading"]);
+        if (g_fading == 0) g_fading = 1;
+
+        if (g_fading < 0) {
+            g_autoFading = 1;
+            g_fading *= -1;
+        }
+    }
+    if (cfg.find("envelopeSamples") != cfg.end()) {
+        g_envelopeSamples = stoi(cfg["envelopeSamples"]);
+    }
+    if (cfg.find("keypadDevice") != cfg.end()) {
+        if (device_open(&dKeyboard, cfg["keypadDevice"].data()) < 0) {
+            std::clog << "ignore invalid keyboard\n";
+        }
+    } else {
+        keyboard_search(&dKeyboard, keyboardDevice);
+    }
+    if (cfg.find("sampleRate") != cfg.end()) {
+        g_sampleRate = stoi(cfg["sampleRate"]);
+    }
+
+    PseudoRandom::instance().setSeed((uint32_t)time(NULL));
+    std::signal(SIGINT, handle_sig);
+    std::signal(SIGTERM, handle_sig);
+
+    while (g_keepRunning)
     {
-      fprintf(stderr, "wait connecting to %s\n", argv[1]);
-      tt_waiting(500);
-      continue;
+        if (device_open(&dMidi, cfg["midiDevice"].data()) < 0)
+        {
+            std::clog << "wait connecting to " << cfg["midiDevice"] << "\n";
+            tt_waiting(500);
+            continue;
+        }
+        std::cout << "Connected to " << cfg["midiDevice"] << "\n";
+
+        pthread_create(&midi_read_thread, NULL, midiReadThread, NULL);
+        pthread_join(midi_read_thread, NULL);
+
+        tt_waiting(200);
+
+        device_close(&dMidi);
     }
-    printf("Connected to %s\n", argv[1]);
 
-    pthread_create(&midi_read_thread, NULL, midiReadThread, NULL);
-    pthread_join(midi_read_thread, NULL);
-
-    tt_waiting(200);
-    
-    device_close(&dMidi);
-  }
-
-  device_close(&dKeyboard);
-  return 0;
+    device_close(&dKeyboard);
+    return 0;
 }

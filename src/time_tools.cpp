@@ -1,20 +1,20 @@
-#include <time.h>
+#include <chrono>
+#include <thread>
 #include "time_tools.h"
 
-int tt_waiting (unsigned int ms)
-{
-  struct timespec req;
-  req.tv_sec  = 0;
-  req.tv_nsec = ms * 1000000;
-  if (nanosleep(&req, NULL) != 0) {
-    return 1;
-  }
-  return 0;
+int tt_waiting (unsigned int ms) {
+    try {
+        std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+        return 0;
+    } catch (...) {
+        return 1;
+    }
 }
 
 unsigned int tt_now (void) {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
+    using namespace std::chrono;
+    auto now = steady_clock::now().time_since_epoch();
+    auto ms = duration_cast<milliseconds>(now).count();
     /* (seconds * 1000) + (nanoseconds / 1 000 000) a 32‑Bit‑Overflow is ok */
-    return (unsigned int)(ts.tv_sec * 1000U + ts.tv_nsec / 1000000U);
+    return static_cast<unsigned int>(ms);
 }

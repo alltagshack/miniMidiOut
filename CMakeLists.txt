@@ -46,3 +46,5 @@ add_executable(${CMAKE_PROJECT_NAME} ${SRCS})
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_INCLUDE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_LIBRARIES})
+
+configure_file(${CMAKE_SOURCE_DIR}/etc/default.conf ${CMAKE_BINARY_DIR}/default.conf COPYONLY)
