@@ -39,7 +39,16 @@ add_executable(miniMidiOut ${SOURCES})
 target_include_directories(miniMidiOut PRIVATE include)
 
 target_compile_features(miniMidiOut PUBLIC cxx_std_17)
+
+target_compile_definitions(miniMidiOut PRIVATE
+  $<$<CONFIG:Debug>:MINIMIDIOUT_DEBUG>
+  $<$<CONFIG:Release>:MINIMIDIOUT_RELEASE>)
+
 target_compile_options(miniMidiOut PRIVATE -Wall -Wextra)
+target_compile_options(miniMidiOut PRIVATE
+  $<$<CONFIG:Debug>:-g>
+  $<$<CONFIG:Release>:-O3>)
+
 
 target_link_libraries(miniMidiOut
     ${PORTAUDIO_LIBRARY}
