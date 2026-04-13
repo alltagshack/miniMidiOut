@@ -72,78 +72,78 @@ PaError player_open (
 
 PaError play (unsigned char status, unsigned char note, unsigned char vel)
 {
-  static unsigned int count    = 0;
-  static unsigned int start_ms = 0;
-  static unsigned int now_ms = 0;
-  static int old_sustain = 0;
-  float freq;
-  Voice *userData;
-  
-  std::cout << std::hex << std::setfill('0')
-    << std::setw(2) << static_cast<int>(status)
-    << " "
-    << std::setw(2) << static_cast<int>(note)
-    << " "
-    << std::setw(2) << static_cast<int>(vel)
-    << std::endl;
+    static unsigned int count    = 0;
+    static unsigned int start_ms = 0;
+    static unsigned int now_ms = 0;
+    static int old_sustain = 0;
+    float freq;
+    Voice *userData;
 
-  if ((status & 0xF0) == 0x90 && vel > 0) {
-    freq = voice_midi2freq(&note);
+    std::cout << std::hex << std::setfill('0')
+        << std::setw(2) << static_cast<int>(status)
+        << " "
+        << std::setw(2) << static_cast<int>(note)
+        << " "
+        << std::setw(2) << static_cast<int>(vel)
+        << std::endl;
+
+    if ((status & 0xF0) == 0x90 && vel > 0) {
+        freq = voice_midi2freq(&note);
 
 
-    userData = voice_get();
+        userData = voice_get();
 
-    voice_active++;
-    userData->note = note;
-    userData->freq = freq;
-    userData->active = (g_autoFading == 1)? 2 : 1;
-    userData->phase = 0.0;
-    userData->volume = 0.7f * ((float)vel / 127.0f);
-    userData->envelope = g_envelopeSamples;
+        voice_active++;
+        userData->note = note;
+        userData->freq = freq;
+        userData->active = (g_autoFading == 1)? 2 : 1;
+        userData->phase = 0.0;
+        userData->volume = 0.7f * ((float)vel / 127.0f);
+        userData->envelope = g_envelopeSamples;
 
-    if (modus == NOISE) noise_prepare(userData);
+        if (modus == NOISE) noise_prepare(userData);
 
-    if (Pa_IsStreamStopped(_stream)) {
-      PaError err = Pa_StartStream(_stream);
-      if (err != paNoError) return err;
+        if (Pa_IsStreamStopped(_stream)) {
+            PaError err = Pa_StartStream(_stream);
+            if (err != paNoError) return err;
+        }
+
+    } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
+        now_ms = tt_now();
+
+        if (vel == 0x7F) g_sustain = 1;
+        if (vel == 0x00) g_sustain = 2;
+
+        if (old_sustain == 1 && g_sustain == 2) {
+            /* release sustain */
+            g_sustain = 0;
+        }
+
+        if (old_sustain == 1 && (g_sustain == 0 || g_sustain == 2) && Pa_IsStreamStopped(_stream)) {
+            if (count == 0) start_ms = now_ms;
+            count++;
+        }
+
+        if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
+            count = 0;
+        }
+
+        if (count >= SUSTAIN_NEEDED)
+        {
+            count = 0;
+            modus_switch('\0');
+        }
+
+        old_sustain = g_sustain;
+
+    } else if ((status & 0xF0) == 0x80 ||
+              ((status & 0xF0) == 0x90 && vel == 0)) {
+
+        userData = voice_find_by_note(&note);
+        if (userData) {
+            userData->active = 2;
+        }
     }
 
-  } else if ((status & 0xF0) == 0xB0 && note == 0x40) {
-    now_ms = tt_now();
-
-    if (vel == 0x7F) g_sustain = 1;
-    if (vel == 0x00) g_sustain = 2;
-
-    if (old_sustain == 1 && g_sustain == 2) {
-      /* release sustain */
-      g_sustain = 0;
-    }
-
-    if (old_sustain == 1 && (g_sustain == 0 || g_sustain == 2) && Pa_IsStreamStopped(_stream)) {
-      if (count == 0) start_ms = now_ms;
-      count++;
-    }
-
-    if (count > 0 && ( (now_ms - start_ms ) > SUSTAIN_MODESWITCH_MS)) {
-      count = 0;
-    }
-
-    if (count >= SUSTAIN_NEEDED)
-    {
-      count = 0;
-      modus_switch('\0');
-    }
-
-    old_sustain = g_sustain;
-
-  } else if ((status & 0xF0) == 0x80 ||
-            ((status & 0xF0) == 0x90 && vel == 0)) {
-
-    userData = voice_find_by_note(&note);
-    if (userData) {
-      userData->active = 2;
-    }
-  }
-
-  return paNoError;
+    return paNoError;
 }

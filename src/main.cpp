@@ -3,8 +3,6 @@
 #include <math.h>
 #include <string.h>
 
-#include <pthread.h>
-
 #include <csignal>
 #include <stdio.h>
 #include <fcntl.h>
@@ -15,6 +13,8 @@
 #include <linux/input.h>
 #include <poll.h>
 #include <sys/epoll.h>
+
+#include <thread>
 
 #include <sched.h>
 #include <sys/mman.h>
@@ -150,7 +150,7 @@ static PaError _theme (void)
   return err;
 }
 
-void *midiReadThread (void *dummy)
+void midiReadThread (void)
 {
     PaError err;
     int ret1, ret2;
@@ -160,21 +160,21 @@ void *midiReadThread (void *dummy)
 
     epoll_fd = epoll_create1(0);
     if (epoll_fd == -1) {
-        fprintf(stderr, "error epoll create.\n");
-        return NULL;
+        std::clog << "error epoll create.\n";
+        return;
     }
 
     events = (struct epoll_event *)calloc(2, sizeof(struct epoll_event));
     
     if (device_add_poll(&dMidi, events, 0, epoll_fd) < 0) {
-        fprintf(stderr, "error epoll add for midi.\n");
+        std::clog << "error epoll add for midi.\n";
         free(events);
         close(epoll_fd);
-        return NULL;
+        return;
     }
 
     if (device_add_poll(&dKeyboard, events, 1, epoll_fd) < 0) {
-      fprintf(stderr, "ignore keyboard\n");
+      std::clog << "ignore keyboard\n";
     }
     
     err = Pa_Initialize();
@@ -195,7 +195,7 @@ void *midiReadThread (void *dummy)
 
         ret1 = epoll_wait(epoll_fd, events, 2, 200);
         if (ret1 < 0) {
-            fprintf(stderr, "error epoll wait.\n");
+            std::clog << "error epoll wait.\n";
             goto out;
         }
 
@@ -205,7 +205,7 @@ void *midiReadThread (void *dummy)
 
         /* midi stuff */
         if (events[0].events & (EPOLLERR | EPOLLHUP)) {
-            fprintf(stderr, "error epoll.\n");
+            std::clog << "error epoll.\n";
             goto out;
         }
 
@@ -215,7 +215,7 @@ void *midiReadThread (void *dummy)
 
     } /* end while */
 
-    printf("quitting...\n");
+    std::cout << "quitting...\n";
 
 out:
 
@@ -227,13 +227,13 @@ out:
     err = player_close();
 
 error:
-    if (err != paNoError) 
-        fprintf(stderr, "error PortAudio: %s\n", Pa_GetErrorText(err));
-
+    if (err != paNoError) {
+        std::clog << "error PortAudio: " << Pa_GetErrorText(err) << "\n";
+    }
     Pa_Terminate();
     free(events);
     close(epoll_fd);
-    return NULL;
+    return;
 }
 
 
@@ -265,7 +265,6 @@ void handle_sig (int sig) {
 
 int main (int argc, char *argv[])
 {
-    pthread_t midi_read_thread;
     char m = '\0';
     struct sched_param param;
 
@@ -349,8 +348,8 @@ int main (int argc, char *argv[])
         }
         std::cout << "Connected to " << cfg["midiDevice"] << "\n";
 
-        pthread_create(&midi_read_thread, NULL, midiReadThread, NULL);
-        pthread_join(midi_read_thread, NULL);
+        std::thread midiThread(midiReadThread);
+        midiThread.join();
 
         tt_waiting(200);
 
