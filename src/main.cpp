@@ -16,24 +16,24 @@
 
 #include <thread>
 
-#include <sched.h>
-#include <sys/mman.h>
-
 #include <map>
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <exception>
 
 #include "modus.h"
 #include "noise.h"
 #include "voice.h"
-#include "pseudo_random.h"
+#include "PseudoRandom.h"
 #include "time_tools.h"
 #include "device/keyboard.h"
 #include "device/midi.h"
 #include "device.h"
 #include "player.h"
 #include "globals.h"
+#include "MemoryLock.h"
+#include "realtime.h"
 
 static int audioCallback (const void *inputBuffer, void *outputBuffer,
                          unsigned long framesPerBuffer,
@@ -266,19 +266,13 @@ void handle_sig (int sig) {
 int main (int argc, char *argv[])
 {
     char m = '\0';
-    struct sched_param param;
-
-    param.sched_priority = 50;
-    sched_setscheduler(0, SCHED_FIFO, &param);
-
-    mlockall(MCL_CURRENT | MCL_FUTURE);
+    char keyboardDevice[256];
 
     g_autoFading = 0;
     g_keepRunning = 1;
     g_sustain = 0;
 
     modus = SAW;
-    char keyboardDevice[256];
 
     g_outputDeviceId = -1;
     g_bufferSize = DEFAULT_BUFFER_SIZE;
@@ -348,10 +342,17 @@ int main (int argc, char *argv[])
         }
         std::cout << "Connected to " << cfg["midiDevice"] << "\n";
 
-        std::thread midiThread(midiReadThread);
-        midiThread.join();
+        try {
+            MemoryLock lock;
+            std::thread midiThread(midiReadThread);
+            realtime_priority(midiThread, 50);
+            midiThread.join();
+            tt_waiting(200);
 
-        tt_waiting(200);
+        }
+        catch (const std::exception & e) {
+            std::clog << "Error: " << e.what() << "\n";
+        }
 
         device_close(&dMidi);
     }

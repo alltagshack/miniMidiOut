@@ -1,5 +1,5 @@
 #include <cstdint>
-#include "pseudo_random.h"
+#include "PseudoRandom.h"
 
 uint32_t PseudoRandom::_state = 1;
 

@@ -1,5 +1,5 @@
-#ifndef __PSEUDO_RANDOM_H
-#define __PSEUDO_RANDOM_H 1
+#ifndef __PSEUDORANDOM_H
+#define __PSEUDORANDOM_H 
 
 #include <cstdint>
 #include <climits>

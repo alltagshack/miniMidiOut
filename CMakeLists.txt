@@ -25,7 +25,7 @@ set (SRCS
     include/modus.h
     include/noise.h
     include/player.h
-    include/pseudo_random.h
+    include/PseudoRandom.h
     include/time_tools.h
     include/voice.h
     src/device/keyboard.cpp
@@ -36,13 +36,16 @@ set (SRCS
     src/modus.cpp
     src/noise.cpp
     src/player.cpp
-    src/pseudo_random.cpp
+    src/PseudoRandom.cpp
     src/time_tools.cpp
     src/voice.cpp
 )
 
 
-add_executable(${CMAKE_PROJECT_NAME} ${SRCS})
+add_executable(${CMAKE_PROJECT_NAME} ${SRCS}
+    include/MemoryLock.h
+    include/realtime.h
+    src/realtime.cpp)
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_INCLUDE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_LIBRARIES})

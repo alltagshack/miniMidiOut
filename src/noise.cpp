@@ -1,7 +1,7 @@
 #include <math.h>
 #include "noise.h"
 #include "voice.h"
-#include "pseudo_random.h"
+#include "PseudoRandom.h"
 #include "globals.h"
 
 void noise_prepare (Voice * const userData)
