@@ -1,6 +1,9 @@
 #ifndef __GLOBALS_H
 #define __GLOBALS_H 1
 
+#include <atomic>
+#include "Modus.h"
+
 /* 48000 44100 16000 11025 */
 #define DEFAULT_RATE           44100
 #define DEFAULT_BUFFER_SIZE    16
@@ -22,7 +25,9 @@ extern int g_autoFading;
 extern unsigned int g_envelopeSamples;
 extern int g_outputDeviceId;
 
-extern volatile int g_keepRunning;
-extern volatile int g_sustain;
+extern std::atomic<int> g_keepRunning;
+extern std::atomic<int> g_sustain;
+
+extern Modus g_modus;
 
 #endif

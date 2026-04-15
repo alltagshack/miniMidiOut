@@ -15,7 +15,7 @@
 #include "device.h"
 #include "device/keyboard.h"
 
-#include "modus.h"
+#include "Modus.h"
 #include "voice.h"
 #include "globals.h"
 
@@ -87,15 +87,20 @@ static int check_poll (Device *dev, struct epoll_event *all, unsigned int id)
         if (n == sizeof(ev) && ev.type == EV_KEY)
         {
             if ((ev.code == KEY_KP1 || ev.code == KEY_1) && ev.value == 1) {
-                modus_switch('i');
+                g_modus.set(Modus::Value::SINUS);
+                g_modus.print();
             } else if ((ev.code == KEY_KP2 || ev.code == KEY_2) && ev.value == 1) {
-                modus_switch('a');
+                g_modus.set(Modus::Value::SAW);
+                g_modus.print();
             } else if ((ev.code == KEY_KP3 || ev.code == KEY_3) && ev.value == 1) {
-                modus_switch('q');
+                g_modus.set(Modus::Value::SQUARE);
+                g_modus.print();
             } else if ((ev.code == KEY_KP4 || ev.code == KEY_4) && ev.value == 1) {
-                modus_switch('r');
+                g_modus.set(Modus::Value::TRIANGLE);
+                g_modus.print();
             } else if ((ev.code == KEY_KP5 || ev.code == KEY_5) && ev.value == 1) {
-                modus_switch('o');
+                g_modus.set(Modus::Value::NOISE);
+                g_modus.print();
 
             } else if ((ev.code == KEY_KP6 || ev.code == KEY_6) && ev.value == 1) {
                 g_fading = DEFAULT_FADING;

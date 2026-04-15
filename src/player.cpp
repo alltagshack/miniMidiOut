@@ -6,7 +6,7 @@
 
 #include "player.h"
 #include "noise.h"
-#include "modus.h"
+#include "Modus.h"
 #include "voice.h"
 #include "time_tools.h"
 #include "globals.h"
@@ -101,7 +101,7 @@ PaError play (unsigned char status, unsigned char note, unsigned char vel)
         userData->volume = 0.7f * ((float)vel / 127.0f);
         userData->envelope = g_envelopeSamples;
 
-        if (modus == NOISE) noise_prepare(userData);
+        if (g_modus == Modus::Value::NOISE) noise_prepare(userData);
 
         if (Pa_IsStreamStopped(_stream)) {
             PaError err = Pa_StartStream(_stream);
@@ -131,7 +131,8 @@ PaError play (unsigned char status, unsigned char note, unsigned char vel)
         if (count >= SUSTAIN_NEEDED)
         {
             count = 0;
-            modus_switch('\0');
+            g_modus.next();
+            g_modus.print();
         }
 
         old_sustain = g_sustain;

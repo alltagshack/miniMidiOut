@@ -22,7 +22,7 @@
 #include <iostream>
 #include <exception>
 
-#include "modus.h"
+#include "Modus.h"
 #include "noise.h"
 #include "voice.h"
 #include "PseudoRandom.h"
@@ -80,17 +80,17 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           voice_active--;
         }
 
-        switch (modus) {
-          case SAW:
+        switch (g_modus.get()) {
+        case Modus::Value::SAW:
             sample += env * voices[j].volume * (2.0f * voices[j].phase - 1.0f);
             break;
-          case SQUARE:
+          case Modus::Value::SQUARE:
             if (voices[j].phase < 0.5f)
               sample -= env * voices[j].volume;
             else
               sample += env * voices[j].volume;
             break;
-          case TRIANGLE: {
+          case Modus::Value::TRIANGLE: {
             float tri;
             if (voices[j].phase < 0.5f)
               tri = 4.0f * voices[j].phase - 1.0f;
@@ -99,7 +99,7 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
             sample += env * voices[j].volume * tri;
             break;
           }
-          case NOISE: {
+          case Modus::Value::NOISE: {
             float filtered = noise_filter(&voices[j]);
             sample += env * voices[j].volume * filtered;
             break;
@@ -272,8 +272,6 @@ int main (int argc, char *argv[])
     g_keepRunning = 1;
     g_sustain = 0;
 
-    modus = SAW;
-
     g_outputDeviceId = -1;
     g_bufferSize = DEFAULT_BUFFER_SIZE;
     g_fading = DEFAULT_FADING;
@@ -297,7 +295,7 @@ int main (int argc, char *argv[])
 
     if (cfg.find("modus") != cfg.end()) {
         m = cfg["modus"][1];
-        modus_switch(m);
+        g_modus.set(m);
     }
     if (cfg.find("outputDeviceId") != cfg.end()) {
         g_outputDeviceId = stoi(cfg["outputDeviceId"]);

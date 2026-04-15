@@ -22,30 +22,30 @@ set (SRCS
     include/device/midi.h
     include/device.h
     include/globals.h
-    include/modus.h
+    include/Modus.h
     include/noise.h
     include/player.h
     include/PseudoRandom.h
     include/time_tools.h
     include/voice.h
+    include/MemoryLock.h
+    include/realtime.h
     src/device/keyboard.cpp
     src/device/midi.cpp
     src/device.cpp
     src/globals.cpp
     src/main.cpp
-    src/modus.cpp
+    src/Modus.cpp
     src/noise.cpp
     src/player.cpp
     src/PseudoRandom.cpp
     src/time_tools.cpp
     src/voice.cpp
+    src/realtime.cpp
 )
 
 
-add_executable(${CMAKE_PROJECT_NAME} ${SRCS}
-    include/MemoryLock.h
-    include/realtime.h
-    src/realtime.cpp)
+add_executable(${CMAKE_PROJECT_NAME} ${SRCS})
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_INCLUDE_DIR})
 target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_LIBRARIES})
