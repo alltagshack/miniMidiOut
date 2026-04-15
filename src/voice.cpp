@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <stdint.h>
 #include "voice.hpp"
+#include "sustain.hpp"
 
 Voice voices[VOICE_MAX];
 volatile int voice_active_value;
@@ -16,13 +17,16 @@ Voice *voice_get () {
     return &voices[0];
 }
 
-Voice *voice_find_by_note (const uint8_t note) {
+void voice_off (const uint8_t note) {
     int i;
     for (i = 0; i < VOICE_MAX; i++) {
-    if ((voices[i].state != VOICE_OFF) && voices[i].note == note)
-        return &voices[i];
+        if ((voices[i].state != VOICE_OFF) && voices[i].note == note) {
+            noInterrupts();
+            voices[i].hold = 0;
+            voices[i].release = sustain_on? VOICE_SUSTAIN_RELEASE : VOICE_FAST_RELEASE;
+            interrupts();
+        }
     }
-    return nullptr;
 }
 
 void voice_init (Voice *v) {

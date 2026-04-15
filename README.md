@@ -6,11 +6,20 @@ Do you want to upload it normal and not via usbasp? You have to comment out the 
 
 ## Features
 
-- velocity (64 steps)
+- velocity (64 steps = 6bit)
 - pitchbend (2 half tones)
 - sustain
 - hold and release
-- 12 voices
-- A0 to GND and all is 1 octave deeper.
-- A1 to GND for toggle into aerodyn mode (A2 to A5 with LEDs)
-- A5 is high for 300ms, if MIDI device is found
+- multiple voices
+
+## new ideas
+
+- octave switch
+- sustain button
+- pitchbend control
+- 7bit velocity
+
+- hall button (NO)
+- modulation control
+  - change in amplitude or frequency
+  - change its speed (?)
