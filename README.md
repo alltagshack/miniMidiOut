@@ -6,19 +6,23 @@ Do you want to upload it normal and not via usbasp? You have to comment out the 
 
 ## Features
 
+midi
+
 - velocity (64 steps = 6bit)
 - pitchbend (2 half tones)
 - sustain
 - hold and release
 - multiple voices
 
-## new ideas
+hardware
 
 - octave switch
-- sustain button
-- pitchbend control
-- 7bit velocity
+- additional sustain
+- additional pitchbend
 
+## new ideas
+
+- 7bit velocity
 - hall button (NO)
 - modulation control
   - change in amplitude or frequency

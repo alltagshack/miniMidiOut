@@ -16,7 +16,16 @@
 #define DAC_BITS            6
 uint8_t dac_mask;
 
+#define PITCH_POTI          A0
+#define PITCH_LED           A1
+#define SUSTAIN_BTN         A2
+#define OCTAVE_SW           A3
+
+int16_t poti_pitch;
+int16_t poti_pitch_old;
 int8_t octave_pitch;
+int    sustain_last;
+
 
 USB         Usb;
 USBHub      Hub(&Usb);
@@ -91,12 +100,7 @@ void MIDI_poll ()
             /* BITCH BEND */
             else if (status == 0xE0) {
                 pitchbend = ((velocity << 7) | note) - 8192;
-                for (uint8_t i = 0; i < VOICE_MAX; ++i) {
-                    v = &voices[i];
-                    if (v->state != VOICE_OFF) {
-                        v->incr = pitchbend_incr(v->freqX100);
-                    }
-                }
+                pitchbend_refresh();
             }
         }
     }
@@ -130,13 +134,19 @@ void setup ()
     voice_active_value = 0;
     pitchbend = 0;
     sustain_on = false;
+    sustain_last = HIGH;
+    octave_pitch = 0;
+    poti_pitch_old = 0;
 
-    octave_pitch = -12;
+    pinMode(PITCH_POTI, INPUT);
+    pinMode(PITCH_LED, OUTPUT);
+    pinMode(SUSTAIN_BTN, INPUT_PULLUP);
+    pinMode(OCTAVE_SW, INPUT_PULLUP);
 
-    cli();
     for (uint8_t i = 0; i < VOICE_MAX; ++i) {
         voice_init(&(voices[i]));
     }
+    cli();
     setupTimers();
     sei();
 
@@ -154,6 +164,45 @@ void loop ()
 {
     Usb.Task();
     if ( Midi ) MIDI_poll();
+
+    poti_pitch = analogRead(PITCH_POTI);
+    if (poti_pitch > (poti_pitch_old+5) || poti_pitch < (poti_pitch_old-5)) {
+        pitchbend = map(poti_pitch, 0, 1023, -8192, 8191);
+        pitchbend_refresh();
+        poti_pitch_old = poti_pitch;
+    }
+
+    if (pitchbend == 0 || (poti_pitch < 514 && poti_pitch > 508)) {
+        digitalWrite(PITCH_LED, HIGH);
+    } else {
+        digitalWrite(PITCH_LED, LOW);
+    }
+
+    if (digitalRead(OCTAVE_SW) == LOW) {
+        octave_pitch = -12;
+    } else {
+        octave_pitch = 0;
+    }
+
+    if (digitalRead(SUSTAIN_BTN) == LOW) {
+        if (sustain_last == HIGH) {
+            sustain_on = true;
+            sustain_last = LOW;
+            for (int i = 0; i < VOICE_MAX; ++i) {
+                voices[i].release = VOICE_SUSTAIN_RELEASE;
+                voices[i].hold = 0;
+            }
+        }
+    } else {
+        if (sustain_last == LOW) {
+            sustain_on = false;
+            sustain_last = HIGH;
+            for (int i = 0; i < VOICE_MAX; ++i) {
+                voices[i].release = VOICE_FAST_RELEASE;
+                voices[i].hold = 0;
+            }
+        }
+    }
 }
 
 

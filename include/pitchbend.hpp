@@ -6,5 +6,6 @@
 extern int16_t pitchbend;
 
 uint32_t pitchbend_incr (uint32_t freqX100);
+void pitchbend_refresh (void);
 
 #endif

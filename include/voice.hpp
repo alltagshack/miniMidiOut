@@ -6,8 +6,8 @@
 #define VOICE_FAST_RELEASE         90u
 #define VOICE_SUSTAIN_RELEASE       1u
 
-#define VOICE_MAX                  12
-#define SAMPLE_RATE             12000u
+#define VOICE_MAX                   8
+#define SAMPLE_RATE              8000u
 
 enum VoiceState {VOICE_OFF, VOICE_ON, VOICE_RELEASE};
 
