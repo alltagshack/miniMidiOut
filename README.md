@@ -27,3 +27,9 @@ hardware
 - modulation control
   - change in amplitude or frequency
   - change its speed (?)
+
+## bugs
+
+- new: I hear 3 releases
+- very 5V sensitive: sometimes MAX USB chip needs minutes or do not match to find device
+- oft ist Klang "übersteuert" (?)
