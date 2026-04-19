@@ -6,12 +6,10 @@
 #include "pitchbend.hpp"
 #include "sustain.hpp"
 
-// 8-voice square mixer with per-voice variable duty, R-2R output (4-bit on PORTD2..4)
-// Sample rate: 31250 Hz (Timer1 ISR)
-// R-2R bits: PORTD2 = LSB, PORTD3, PORTD4 = MSB (3-bit -> 0..7 levels)
+// multi voice square mixer with per-voice variable duty, R-2R output (6-bit on PORTD2..7)
 // Adjust DAC_BITS to expand to more pins if you build larger ladder.
 
-// R-2R output bits (using PORTD) uses D2..D7 for 4 bits
+// R-2R output bits (using PORTD) uses D2..D7 for 6 bits
 #define DAC_PIN_BASE        2
 #define DAC_BITS            6
 uint8_t dac_mask;
@@ -59,6 +57,7 @@ void MIDI_poll ()
             /* NOTE ON */
             if (status == 0x90 && velocity > 0)
             {
+                Serial.println(note);
                 v = voice_get();
 
                 v->freqX100 = voice_get_freq(note + octave_pitch);
@@ -207,7 +206,7 @@ void loop ()
 
 
 ISR(TIMER1_COMPA_vect) {
-    uint8_t i,vol,sum =0;
+    int8_t i,vol,sum = 0;
     uint8_t port = PORTD;
     Voice *v;
 
@@ -217,17 +216,17 @@ ISR(TIMER1_COMPA_vect) {
             v->phase += v->incr;
             if (v->phase < 0x40000000UL)
             {
-                vol = (v->volume>>11);
-                sum += (vol == 0)? 1 : vol;
+                vol = (v->volume >> 11);
+                sum += (vol < 1)? 1 : vol;
             }
             if (v->state == VOICE_RELEASE) {
                 
-                if (v->volume < v->release)
+                if (v->volume > v->release)
                 {
+                    v->volume -= v->release;
+                } else {
                     v->state = VOICE_OFF;
                     voice_active_value--;
-                } else {
-                    v->volume -= v->release;
                 }
             } else {
                 if (v->hold == 0) {
@@ -236,6 +235,7 @@ ISR(TIMER1_COMPA_vect) {
                     v->hold--;
                 }
             }
+
         }
     }
     port &= ~dac_mask;
