@@ -3,11 +3,11 @@
 
 #include <stdint.h>
 
-#define VOICE_FAST_RELEASE         64u
+#define VOICE_FAST_RELEASE         90u
 #define VOICE_SUSTAIN_RELEASE       1u
 
-#define VOICE_MAX                  12
-#define SAMPLE_RATE              6122u
+#define VOICE_MAX                   8
+#define SAMPLE_RATE              8000u
 
 enum VoiceState {VOICE_OFF, VOICE_ON, VOICE_RELEASE};
 
@@ -17,7 +17,7 @@ typedef struct Voice_s
     uint8_t          note;
     uint8_t       release;
     /// if the value is not -1, how many samples this voice has to play the note
-    int16_t          hold;
+    int32_t          hold;
     uint32_t     freqX100;
     uint32_t       volume;
     uint32_t        phase;
@@ -65,7 +65,7 @@ const uint32_t voice_midiFreq[133] PROGMEM = {
 
 void voice_init (Voice *v);
 Voice *voice_get ();
-Voice *voice_find_by_note (const uint8_t note);
+void voice_off (const uint8_t note);
 void voice_volume_refresh (Voice *v);
 uint32_t voice_get_freq (uint8_t note);
 
