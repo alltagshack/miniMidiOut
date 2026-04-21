@@ -1,8 +1,10 @@
 # 6bit PWM magic
 
-Code Works with 5x 884 Ohm (10x 1800) and 7x 1800 Ohm R2R bridge based on D2 (till D7). No final RC needed for good retro sound!
+Code Works with 5x 884 Ohm (10x 1800) and 7x 1800 Ohm R2R bridge
+based on D2 (till D7). No final RC needed for good retro sound!
 
-Do you want to upload it normal and not via usbasp? You have to comment out the "upload_" parts in `platformio.ini`.
+Do you want to upload it normal and not via usbasp? You have
+to comment out the "upload_" parts in `platformio.ini`.
 
 ## Features
 
@@ -16,9 +18,10 @@ midi
 
 hardware
 
-- octave switch
-- additional sustain
-- additional pitchbend
+- octave switch down (A3 to GND)
+- additional sustain (A2 to GND)
+- additional pitchbend (5V..A0..GND)
+- A1 is HIGH, if pitchbend is neutral
 
 ## new ideas
 
@@ -31,3 +34,4 @@ hardware
 ## bugs
 
 - very 5V sensitive: sometimes MAX USB chip needs minutes or do not match to find device
+- inital find USB-Client takes up to 3 minutes
