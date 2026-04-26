@@ -17,7 +17,7 @@ Voice *voice_new () {
             v = &voices[i];
             isFound = true;
         } else {
-            voices[i].volume = ((float)voices[i].volume) * 0.7f;
+            voices[i].volume = ((float)voices[i].volume) * 0.85f;
         }
     }
     /* no non active voice found. we use the 0 voice! */
@@ -46,7 +46,6 @@ void voice_init (Voice *v, uint8_t note, uint8_t velocity) {
     v->cutoff = modulation_cutoff();
     v->hold = 4*SAMPLE_RATE;
     v->volume = ((uint32_t)velocity)<<10;
-    v->volume = ((float)v->volume) * 0.8f;
     v->release = VOICE_SUSTAIN_RELEASE;
 }
 
