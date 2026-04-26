@@ -22,6 +22,7 @@ typedef struct Voice_s
     uint32_t       volume;
     uint32_t        phase;
     uint32_t         incr;
+    uint32_t       cutoff;
 } Voice;
 
 const uint32_t voice_midiFreq[133] PROGMEM = {
@@ -63,8 +64,8 @@ const uint32_t voice_midiFreq[133] PROGMEM = {
 1674403
 };
 
-void voice_init (Voice *v);
-Voice *voice_get ();
+void voice_init (Voice *v, uint8_t note, uint8_t velocity);
+Voice *voice_new ();
 void voice_off (const uint8_t note);
 void voice_volume_refresh (Voice *v);
 uint32_t voice_get_freq (uint8_t note);

@@ -5,6 +5,8 @@
 #include "voice.hpp"
 
 int16_t pitchbend;
+int16_t poti_pitch;
+int16_t poti_pitch_old;
 
 uint32_t pitchbend_incr (uint32_t freqX100)
 {
