@@ -9,7 +9,7 @@ uint16_t modulation_value_old;
 
 uint32_t modulation_cutoff (void)
 {
-    return 0x24000000UL + modulation_value * 0x00340000UL;
+    return 0x30000000UL + modulation_value * 0x00300000UL;
 }
 
 

@@ -39,7 +39,7 @@ void MIDI_poll ()
             /* NOTE ON */
             if (status == 0x90 && velocity > 0)
             {
-                //Serial.println(note);
+                Serial.println(note);
                 v = voice_new();
                 voice_init(v, note, velocity);
 
@@ -134,12 +134,14 @@ void loop ()
 
     poti_pitch = analogRead(PITCH_POTI);
     if (poti_pitch > (poti_pitch_old+5) || poti_pitch < (poti_pitch_old-5)) {
+        Serial.println(poti_pitch);
         pitchbend = map(poti_pitch, 0, 1023, -8192, 8191);
         pitchbend_refresh();
         poti_pitch_old = poti_pitch;
     }
     modulation_value = analogRead(MODULATION_POTI);
     if (modulation_value > (modulation_value_old+2) || modulation_value < (modulation_value_old-2)) {
+        Serial.println(modulation_value);
         modulation_refresh();
         modulation_value_old = modulation_value;
     }

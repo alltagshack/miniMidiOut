@@ -15,6 +15,7 @@ midi
 - sustain
 - hold and release
 - multiple voices
+- modulation (5V..A4..GND)
 
 hardware
 

@@ -10,16 +10,19 @@ Voice voices[VOICE_MAX];
 volatile int voice_active_value;
 
 Voice *voice_new () {
+    Voice *v = &voices[0];
+    bool isFound = false;
     for (uint8_t i = 0; i < VOICE_MAX; i++) {
         if (voices[i].state == VOICE_OFF) {
-            return &voices[i];
+            v = &voices[i];
+            isFound = true;
         } else {
-            
+            voices[i].volume = ((float)voices[i].volume) * 0.7f;
         }
     }
     /* no non active voice found. we use the 0 voice! */
-    voice_active_value--;
-    return &voices[0];
+    if (isFound) voice_active_value--;
+    return v;
 }
 
 void voice_off (const uint8_t note) {
@@ -39,10 +42,11 @@ void voice_init (Voice *v, uint8_t note, uint8_t velocity) {
     v->freqX100 = voice_get_freq(note + octave_pitch);
     v->incr = pitchbend_incr(v->freqX100);
     v->note = note;
-    //v->phase = 0;
+    v->phase = 0;
     v->cutoff = modulation_cutoff();
     v->hold = 4*SAMPLE_RATE;
     v->volume = ((uint32_t)velocity)<<10;
+    v->volume = ((float)v->volume) * 0.8f;
     v->release = VOICE_SUSTAIN_RELEASE;
 }
 
