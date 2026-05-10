@@ -44,7 +44,7 @@ namespace synth0815
                 if (mixedSample > 1f) mixedSample = 1f;
                 else if (mixedSample < -1f) mixedSample = -1f;
 
-                // write to channels
+                // write to audioChannels
                 for (int ch = 0; ch < _channels; ch++)
                 {
                     buffer[offset + n * _channels + ch] = mixedSample;

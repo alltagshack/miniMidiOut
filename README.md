@@ -1,23 +1,27 @@
 # synth0815
 
-todo: run it as a systray program
+A midi synthesizer running as systray application.
+
+![Screenshot](screenshot.jpg)
 
 ## features
 
-- 4 waveforms: sinus, square, sawtooth, triangle
+- 4 waveforms: sinus, sawtooth, square, triangle
 - many voices
-- use/find first midi device
+- automatic use first midi device, if only 1 exists
 - velocity
 - pitch
 - sustain
 - release volumen during key press
+- midi device is selectable
+- channel is selectable (channel 0 = all channels)
+- ONLY non typical errors or events are written to a log file!
 
 ## missing
 
 - config file
-- error handling (e.g. midi device is no keyboard or hotpluging issues)
-- no unit tests
-- no comments or doc in code
-- no usb hotpluging
+- more error handling (e.g. midi device is no keyboard or hotpluging issues)
+- unit tests
+- comments or doc in code
 - no setup or CI/CD routine
 - missing tests for realtime: how many ms delay between key-press and audio out?
