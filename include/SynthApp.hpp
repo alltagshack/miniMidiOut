@@ -21,6 +21,7 @@ private:
     
     Waveform _currentWaveform;
     bool _sustainPedal;
+    int _sustainCount;
 
     void NoteOn (int noteNumber, int velocity);
     void NoteOff (int noteNumber);

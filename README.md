@@ -15,6 +15,7 @@ A midi synthesizer. This code is a ugly combination of:
 - sustain
 - release volumen during key press
 - midi device is selectable via CLI
+- press 3x sustain on silence to switch through wavforms
 
 ## missing
 

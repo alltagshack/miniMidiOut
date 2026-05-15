@@ -78,6 +78,19 @@ bool SynthApp::MidiMessageReceived ()
                         v->_isDeleted = true;
                         v->_pendingNoteOff = false;
                     }
+                } else {
+                    if (Voices.IsEmpty())
+                    {
+                        _sustainCount++;
+                        if (_sustainCount > 2)
+                        {
+                            // on silence -> 3x sustain = cycles through waveforms
+                            _currentWaveform++;
+                            _sustainCount = 0;
+                        }
+                    } else {
+                        _sustainCount = 0;
+                    }
                 }
             }
         }
@@ -103,6 +116,7 @@ bool SynthApp::MidiMessageReceived ()
 
 SynthApp::SynthApp (char *midiDev, Waveform waveform)
 {
+    _sustainCount = 0;
     _sustainPedal = false;
     _currentWaveform = waveform;
     _selectedMidiIn = open(midiDev, O_RDONLY | O_NONBLOCK);
@@ -143,21 +157,16 @@ void SynthApp::Run (bool &keepRunning)
     events[0].data.fd = _selectedMidiIn;
     epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _selectedMidiIn, &events[0]);
 
+    Pa_StartStream(_output);
+
     while (keepRunning)
     {
-        if (Voices.IsEmpty()) {
-            Pa_StopStream(_output);
-        }
-        
         epoll_wait(epoll_fd, events, 1, 200);
-            
-        if (MidiMessageReceived() == true)
-        {
-            if (Pa_IsStreamStopped(_output)) {
-                Pa_StartStream(_output);
-            }
-        }
+        MidiMessageReceived();
     }
+    
+    Pa_StopStream(_output);
+    
     free(events);
     close(epoll_fd);
 }
