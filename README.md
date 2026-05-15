@@ -27,8 +27,11 @@ A midi synthesizer. This code is a ugly combination of:
 ## build
 
 ```
-g++ Voice.cpp SynthApp.cpp Program.cpp -std=c++20 -O2 -Wall -lm -lportaudio -lasound -o synth0815
+cmake -B build
+cmake --build build
 ```
+
+
 
 ## usage
 

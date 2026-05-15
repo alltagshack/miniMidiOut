@@ -3,7 +3,7 @@
 
 build/**/*
 a.out
-synth0815
+core.*
 
 portaudio/**/*
 *.tgz
