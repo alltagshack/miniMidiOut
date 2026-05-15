@@ -1,7 +1,6 @@
 #ifndef _SYNTH_APP_HPP
 #define _SYNTH_APP_HPP 1
 
-#include <alsa/asoundlib.h>
 #include <portaudio.h>
 
 #include "Waveform.hpp"
@@ -17,7 +16,7 @@ private:
     static const double _fade;
     static RecycleList<Voice> Voices;
 
-    snd_rawmidi_t *_selectedMidiIn;
+    int _selectedMidiIn;
     PaStream *_output;
     
     Waveform _currentWaveform;

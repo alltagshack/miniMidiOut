@@ -31,13 +31,19 @@ cmake -B build
 cmake --build build
 ```
 
-
-
 ## usage
 
+Add YOURSELF to the input group, to have access to e.g. `/dev/midi2`
+
 ```
-./synth0815 midiDevice waveform
- - use 'amidi -l' to find midiDevice. example: hw:2,0,0
+sudo usermod -aG input YOURSELF
+```
+
+After logout and relogin YOURSELF has the right for raw access to the midi device.
+
+```
+./build/synth0815 midiDevice waveform
+ - midiDevice example: /dev/midi2
  - waveform: s=sin, a=saw, t=triangle, q=square
  - CTRL+C to exit
 ```

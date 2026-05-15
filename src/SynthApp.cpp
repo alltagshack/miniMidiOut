@@ -1,7 +1,12 @@
 #include <cmath>
-
-#include <alsa/asoundlib.h>
 #include <portaudio.h>
+
+/* open */
+#include <fcntl.h>
+/* close */
+#include <unistd.h>
+
+#include <sys/epoll.h>
 
 #include "Waveform.hpp"
 #include "Voice.hpp"
@@ -40,7 +45,7 @@ bool SynthApp::MidiMessageReceived ()
     bool isNewVoice = false;
     unsigned char buffer[3];
     
-    int n = snd_rawmidi_read(_selectedMidiIn, buffer, sizeof(buffer));
+    int n = read(_selectedMidiIn, buffer, sizeof(buffer));
 
     if (n > 0) {
         unsigned char status   = buffer[0];
@@ -100,14 +105,7 @@ SynthApp::SynthApp (char *midiDev, Waveform waveform)
 {
     _sustainPedal = false;
     _currentWaveform = waveform;
-    
-    snd_rawmidi_open(
-        &_selectedMidiIn,
-        NULL, 
-        midiDev,
-        SND_RAWMIDI_NONBLOCK
-    );
-    
+    _selectedMidiIn = open(midiDev, O_RDONLY | O_NONBLOCK);
     
     Pa_Initialize();
     Pa_OpenDefaultStream(
@@ -130,17 +128,29 @@ SynthApp::~SynthApp ()
     Pa_CloseStream(_output);
     Pa_Terminate();
     
-    snd_rawmidi_close(_selectedMidiIn);
+    close(_selectedMidiIn);
 }
 
 void SynthApp::Run (bool &keepRunning)
 {
+    int epoll_fd;
+    struct epoll_event *events;
+    
+    epoll_fd = epoll_create1(0);
+    // 1 element = index 0
+    events = (struct epoll_event *)calloc(1, sizeof(struct epoll_event));
+    events[0].events = EPOLLIN;
+    events[0].data.fd = _selectedMidiIn;
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, _selectedMidiIn, &events[0]);
+
     while (keepRunning)
     {
         if (Voices.IsEmpty()) {
             Pa_StopStream(_output);
         }
         
+        epoll_wait(epoll_fd, events, 1, 200);
+            
         if (MidiMessageReceived() == true)
         {
             if (Pa_IsStreamStopped(_output)) {
@@ -148,6 +158,8 @@ void SynthApp::Run (bool &keepRunning)
             }
         }
     }
+    free(events);
+    close(epoll_fd);
 }
 
 int SynthApp::Read (

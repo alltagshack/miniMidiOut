@@ -15,7 +15,7 @@ int main (int argc, char * argv[])
     
     if (argc < 3) {
         printf("usage: %s midiDevice waveform\n", argv[0]);
-        printf(" - use 'amidi -l' to find midiDevice. example: hw:2,0,0\n");
+        printf(" - midiDevice example: /dev/midi2\n");
         printf(" - waveform: s=sin, a=saw, t=triangle, q=square\n");
         printf(" - CTRL+C to exit\n");
         return 1;

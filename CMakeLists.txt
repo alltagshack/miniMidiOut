@@ -11,13 +11,6 @@ if(NOT PORTAUDIO_LIBRARY)
         "Install the Debian package: portaudio19-dev.")
 endif()
 
-find_library(ASOUND_LIBRARY asound)
-if(NOT ASOUND_LIBRARY)
-    message(FATAL_ERROR
-        "ALSA (libasound) not found.\n"
-        "Install the Debian package: libasound-dev.")
-endif()
-
 include_directories(
     include
 )
@@ -32,4 +25,4 @@ set (SRCS
 add_executable(${CMAKE_PROJECT_NAME} ${SRCS})
 
 target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_INCLUDE_DIR})
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_LIBRARY} ${ASOUND_LIBRARY})
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${PORTAUDIO_LIBRARY})
