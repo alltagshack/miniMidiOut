@@ -16,6 +16,7 @@ A midi synthesizer running as systray application.
 - midi device is selectable
 - channel is selectable (channel 0 = all channels)
 - ONLY non typical errors or events are written to a log file!
+- press 3x sustain on silence to switch through wavforms
 
 ## missing
 

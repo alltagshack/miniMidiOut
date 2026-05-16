@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace synth0815
 {
+    static class UiInvoker
+    {
+        public static SynchronizationContext UiContext { get; set; }
+    }
+
     internal sealed class HelperForm : Form
     {
         public HelperForm ()
@@ -13,6 +18,7 @@ namespace synth0815
             ShowInTaskbar = false;
             Opacity = 0;
             Width = Height = 0;
+            UiInvoker.UiContext = SynchronizationContext.Current;
         }
     }
 }

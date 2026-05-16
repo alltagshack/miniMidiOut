@@ -16,7 +16,6 @@ namespace synth0815
 
         private NotifyIcon _icon;
         private ContextMenuStrip _menu;
-        private List<ToolStripMenuItem> _waveformItems;
         private ToolStripMenuItem _devicesItem;
         private ToolStripMenuItem _channelItem;
         private ToolStripMenuItem _refreshItem;
@@ -26,22 +25,28 @@ namespace synth0815
         private int _selectedChannel = 0;
         private readonly HelperForm _invokeHelper;
 
+        static Waveforms _waveforms = new Waveforms();
 
         static readonly int sampleRate = 22050;
         static readonly int audioChannels = 1;
 
         static SynthMixer _mixer;
         static WaveOutEvent _output;
-        static SignalGeneratorType _currentWaveform;
         static bool _sustainPedal;
+        static int _sustainCount;
 
         static void NoteOn (int noteNumber, int velocity)
         {
             lock (_mixer.Voices)
             {
-                Voice v = new Voice(note: noteNumber, volume: velocity / 127.0f * 0.4f, _currentWaveform);
+                Voice v = new Voice(
+                    noteNumber,
+                    velocity / 127.0f * 0.4f,
+                    _waveforms._current.SignalType
+                );
                 _mixer.Voices.Add(v);
             }
+            _sustainCount = 0;
         }
 
         static void NoteOff (int noteNumber)
@@ -99,6 +104,25 @@ namespace synth0815
                                 });
                             }
 
+                        } else
+                        {
+                            if (_mixer.Voices.Count == 0)
+                            {
+                                _sustainCount++;
+                                if (_sustainCount > 2)
+                                {
+                                    // on silence -> 3x sustain = cycles through waveforms
+                                    UiInvoker.UiContext?.Post(_ =>
+                                    {
+                                        _waveforms.Next();
+                                        _sustainCount = 0;
+                                    }, null);
+                                }
+                            }
+                            else
+                            {
+                                _sustainCount = 0;
+                            }
                         }
 
                     }
@@ -134,9 +158,9 @@ namespace synth0815
 
         public SynthApp ()
         {
+            _sustainCount = 0;
             _sustainPedal = false;
             _mixer = new SynthMixer(sampleRate, fade: 0.000001, audioChannels);
-            _waveformItems = new List<ToolStripMenuItem>();
 
             _output = new WaveOutEvent
             {
@@ -186,14 +210,14 @@ namespace synth0815
 
             _menu.Items.Add(new ToolStripSeparator());
 
-            AddWaveform("~~ Sinus", SignalGeneratorType.Sin);
-            AddWaveform("/// SawTooth", SignalGeneratorType.SawTooth);
-            AddWaveform("|_| Square", SignalGeneratorType.Square);
-            AddWaveform("/\\/ Triangle", SignalGeneratorType.Triangle);
+            _waveforms.Add("~~ Sinus", SignalGeneratorType.Sin);
+            _waveforms.Add("/// SawTooth", SignalGeneratorType.SawTooth);
+            _waveforms.Add("|_| Square", SignalGeneratorType.Square);
+            _waveforms.Add("/\\/ Triangle", SignalGeneratorType.Triangle);
 
-            // default
-            ChangeWaveform("/// SawTooth", SignalGeneratorType.SawTooth);
-
+            _waveforms.ForEach(wf => {
+                _menu.Items.Add(wf.Item);
+            });
             _menu.Items.Add(new ToolStripSeparator());
 
             _exitItem = new ToolStripMenuItem("Exit");
@@ -204,26 +228,22 @@ namespace synth0815
             _icon.MouseUp += TrayIcon_MouseUp;
 
             BuildDeviceMenu();
+
+            // default
+            _waveforms.ChangeTo("/// SawTooth");
         }
 
         private void TrayIcon_MouseUp (object? sender, MouseEventArgs e)
         {
             if (e.Button == MouseButtons.Left)
             {
-                _menu.Show(Cursor.Position);
+                if (_menu.Visible)
+                {
+                    _menu.Hide();
+                } else {
+                    _menu.Show(Cursor.Position);
+                }
             }
-        }
-
-        private void AddWaveform (string name, SignalGeneratorType waveform)
-        {
-            var item = new ToolStripMenuItem(name)
-            {
-                Checked = false,
-                CheckOnClick = true
-            };
-            item.Click += (s, e) => ChangeWaveform(name, waveform);
-            _waveformItems.Add(item);
-            _menu.Items.Add(item);
         }
 
         private void RefreshDevices ()
@@ -280,15 +300,7 @@ namespace synth0815
             OpenMidiIn(deviceIndex);
         }
 
-        private void ChangeWaveform (string name, SignalGeneratorType waveform)
-        {
 
-            foreach (ToolStripMenuItem itm in _waveformItems)
-            {
-                itm.Checked = (name == itm.Text) ? true: false;
-            }
-            _currentWaveform = waveform;
-        }
 
         private void OpenMidiIn (int deviceIndex)
         {

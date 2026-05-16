@@ -12,6 +12,7 @@ namespace synth0815
         {
             FileLogger.Init();
             ApplicationConfiguration.Initialize();
+
             using var tray = new SynthApp();
             Application.Run();
             FileLogger.Shutdown();
