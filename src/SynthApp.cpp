@@ -19,6 +19,7 @@ RecycleList<Voice> SynthApp::Voices;
 void SynthApp::NoteOn (int noteNumber, int velocity)
 {
     Voices.Add(noteNumber, velocity / 127.0f * 0.4f, _currentWaveform);
+    _sustainCount = 0;
 }
 
 void SynthApp::NoteOff (int noteNumber)
