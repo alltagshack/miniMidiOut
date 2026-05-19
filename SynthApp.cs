@@ -403,31 +403,32 @@ namespace synth0815
                 ShowInTaskbar = false,
             };
 
-            var modFac = new NumericUpDown
+            var modFac = new TrackBar
             {
-                Minimum = 0.0m,
-                Maximum = 0.5m,
-                Value = (decimal)_modulationFactor,
-                Increment = 0.01m,
-                DecimalPlaces = 2,
+                Minimum = 0,
+                Maximum = 500,
+                TickFrequency = 50,
+                SmallChange = 5,
+                LargeChange = 50,
+                Orientation = Orientation.Horizontal,
+
+                Value = (int)(1000 * _modulationFactor),
                 Dock = DockStyle.Top,
             };
 
-            var btnApply = new Button { Text = "apply", Dock = DockStyle.Bottom };
-            var btnOk = new Button { Text = "ok", DialogResult = DialogResult.OK, Dock = DockStyle.Bottom };
+            var btnOk = new Button { Text = "OK", DialogResult = DialogResult.OK, Dock = DockStyle.Bottom };
 
-            btnApply.Click += (s,e) => {
-                _modulationFactor = (float)modFac.Value;
+            modFac.ValueChanged += (s,e) => {
+                _modulationFactor = modFac.Value / 1000f;
             };
 
             dlg.Controls.Add(modFac);
-            dlg.Controls.Add(btnApply);
             dlg.Controls.Add(btnOk);
             dlg.AcceptButton = btnOk;
 
             if (dlg.ShowDialog() == DialogResult.OK)
             {
-                _modulationFactor = (float)modFac.Value;
+                _modulationFactor = modFac.Value / 1000f;
             }
         }
     }

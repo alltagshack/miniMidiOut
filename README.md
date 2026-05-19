@@ -15,6 +15,7 @@ A midi synthesizer running as systray application.
 - release volumen during key press
 - midi device is selectable
 - channel is selectable (channel 0 = all channels)
+- modulation slider
 - ONLY non typical errors or events are written to a log file!
 - press 3x sustain on silence to switch through wavforms
 
