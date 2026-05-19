@@ -11,13 +11,15 @@ namespace synth0815
         public static SynchronizationContext UiContext { get; set; }
     }
 
-    internal sealed class HelperForm : Form
+    internal sealed class UiForm : Form
     {
-        public HelperForm ()
+
+        public UiForm ()
         {
-            ShowInTaskbar = false;
-            Opacity = 0;
-            Width = Height = 0;
+            ShowInTaskbar = true;
+            Opacity = 1.0;
+            Width = Height = 300;
+
             UiInvoker.UiContext = SynchronizationContext.Current;
         }
     }

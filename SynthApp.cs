@@ -1,12 +1,12 @@
+using NAudio.Midi;
+using NAudio.Wave;
+using NAudio.Wave.SampleProviders;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
+using System.Numerics;
 using System.Windows.Forms;
-
-using NAudio.Midi;
-using NAudio.Wave;
-using NAudio.Wave.SampleProviders;
 
 namespace synth0815
 {
@@ -18,12 +18,15 @@ namespace synth0815
         private ContextMenuStrip _menu;
         private ToolStripMenuItem _devicesItem;
         private ToolStripMenuItem _channelItem;
+        private ToolStripMenuItem _modulationItem;
         private ToolStripMenuItem _refreshItem;
         private ToolStripMenuItem _exitItem;
 
         private MidiIn? _selectedMidiIn;
         private int _selectedChannel = 0;
-        private readonly HelperForm _invokeHelper;
+        static private float _modulationFactor = 0.00f;
+
+        private readonly UiForm _invokeHelper;
 
         static Waveforms _waveforms = new Waveforms();
 
@@ -42,7 +45,8 @@ namespace synth0815
                 Voice v = new Voice(
                     noteNumber,
                     velocity / 127.0f * 0.4f,
-                    _waveforms._current.SignalType
+                    _waveforms._current.SignalType,
+                    _modulationFactor
                 );
                 _mixer.Voices.Add(v);
             }
@@ -169,7 +173,7 @@ namespace synth0815
             };
             _output.Init(_mixer);
 
-            _invokeHelper = new HelperForm();
+            _invokeHelper = new UiForm();
             _invokeHelper.CreateControl();
 
             Icon icon;
@@ -201,8 +205,12 @@ namespace synth0815
             _menu.Items.Add(_devicesItem);
 
             _channelItem = new ToolStripMenuItem("Channel ...");
-            _channelItem.Click += (s, e) => ShowChannelDialog();
+            _channelItem.Click += (s, e) => ChannelDialog();
             _menu.Items.Add(_channelItem);
+
+            _modulationItem = new ToolStripMenuItem("Modulation ...");
+            _modulationItem.Click += (s, e) => ModulationDialog();
+            _menu.Items.Add(_modulationItem);
 
             _refreshItem = new ToolStripMenuItem("Refresh");
             _refreshItem.Click += (s, e) => RefreshDevices();
@@ -345,7 +353,7 @@ namespace synth0815
             _invokeHelper.Dispose();
         }
 
-        private void ShowChannelDialog ()
+        private void ChannelDialog ()
         {
             using var dlg = new Form
             {
@@ -378,6 +386,48 @@ namespace synth0815
             if (dlg.ShowDialog() == DialogResult.OK)
             {
                 _selectedChannel = (int)num.Value;
+            }
+        }
+
+        private void ModulationDialog ()
+        {
+            using var dlg = new Form
+            {
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                StartPosition = FormStartPosition.CenterScreen,
+                Width = 250,
+                Height = 120,
+                Text = "Select modulation",
+                MinimizeBox = false,
+                MaximizeBox = false,
+                ShowInTaskbar = false,
+            };
+
+            var modFac = new NumericUpDown
+            {
+                Minimum = 0.0m,
+                Maximum = 0.5m,
+                Value = (decimal)_modulationFactor,
+                Increment = 0.01m,
+                DecimalPlaces = 2,
+                Dock = DockStyle.Top,
+            };
+
+            var btnApply = new Button { Text = "apply", Dock = DockStyle.Bottom };
+            var btnOk = new Button { Text = "ok", DialogResult = DialogResult.OK, Dock = DockStyle.Bottom };
+
+            btnApply.Click += (s,e) => {
+                _modulationFactor = (float)modFac.Value;
+            };
+
+            dlg.Controls.Add(modFac);
+            dlg.Controls.Add(btnApply);
+            dlg.Controls.Add(btnOk);
+            dlg.AcceptButton = btnOk;
+
+            if (dlg.ShowDialog() == DialogResult.OK)
+            {
+                _modulationFactor = (float)modFac.Value;
             }
         }
     }

@@ -14,6 +14,7 @@ namespace synth0815
             ApplicationConfiguration.Initialize();
 
             using var tray = new SynthApp();
+            Application.EnableVisualStyles();
             Application.Run();
             FileLogger.Shutdown();
         }

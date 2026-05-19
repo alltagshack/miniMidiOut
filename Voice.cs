@@ -4,7 +4,7 @@ namespace synth0815
 {
     public class Voice
     {
-        private readonly double twoPi = 2.0 * Math.PI;
+        private readonly double TWO_PI = 2.0 * Math.PI;
 
         public int _note;
         public float _orgFrequency;
@@ -14,9 +14,19 @@ namespace synth0815
         public bool _enabled;
         public bool _pendingNoteOff;
 
+        public float _modFactor;
+        public uint _modFrequency;
+        private double _mod;
+        private bool _modulationUp;
+
         private SignalGeneratorType _waveform;
 
-        public Voice (int note, float volume, SignalGeneratorType waveform = SignalGeneratorType.Sin)
+        public Voice (
+            int note,
+            float volume,
+            SignalGeneratorType waveform = SignalGeneratorType.Sin,
+            float modFactor = 0.00f,
+            uint modFrequency = 5)
         {
             this._waveform = waveform;
             this._note = note;
@@ -25,19 +35,44 @@ namespace synth0815
             this._enabled = true;
             this._pendingNoteOff = false;
 
+            this._modFactor = modFactor;
+            this._modFrequency = modFrequency;
+            this._mod = 0.0;
+            this._modulationUp = true;
+
             this._frequency = MidiNoteToFrequency(note);
             this._orgFrequency = this._frequency;
         }
 
         private double Increment (int sampleRate)
         {
-            return twoPi * _frequency / sampleRate;
+            if (_modFrequency == 0 || _modFactor < 0.0001)
+            {
+                return TWO_PI* _frequency / sampleRate;
+            }
+
+            double val = TWO_PI * (_frequency * (1.0 + _mod)) / sampleRate;
+
+            if (_modulationUp)
+            {
+                _mod += 0.5 * _modFrequency / sampleRate;
+            }
+            else
+            {
+                _mod -= 0.5 * _modFrequency / sampleRate;
+            }
+
+
+            if (_mod < (-1.0 * _modFactor)) _modulationUp = true;
+            if (_mod > _modFactor) _modulationUp = false;
+
+            return val;
         }
 
         public float NextSample (int sampleRate)
         {
             float sample = 0f;
-            double phaseNorm = _phase / twoPi; // 0..1
+            double phaseNorm = _phase / TWO_PI; // 0..1
 
             switch (_waveform)
             {
@@ -67,7 +102,7 @@ namespace synth0815
 
             // advance phase, keep within 0..2pi
             _phase += Increment(sampleRate);
-            if (_phase >= twoPi) _phase -= twoPi;
+            if (_phase >= TWO_PI) _phase -= TWO_PI;
 
             return sample;
         }
