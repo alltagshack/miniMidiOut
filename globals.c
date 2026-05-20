@@ -9,3 +9,6 @@ int g_outputDeviceId;
 
 volatile int g_keepRunning;
 volatile int g_sustain;
+
+unsigned int g_modFrequency = 5;
+double g_modFactor = 0.0;

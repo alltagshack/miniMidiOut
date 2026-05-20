@@ -25,4 +25,7 @@ extern int g_outputDeviceId;
 extern volatile int g_keepRunning;
 extern volatile int g_sustain;
 
+extern unsigned int g_modFrequency;
+extern double g_modFactor;
+
 #endif

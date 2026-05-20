@@ -28,4 +28,6 @@ Voice *voice_get ();
 Voice *voice_find_by_note (const unsigned char *note);
 float voice_midi2freq (const unsigned char *note);
 
+void voice_increment (Voice * v);
+
 #endif

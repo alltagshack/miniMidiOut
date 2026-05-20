@@ -43,14 +43,16 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
   if (cnt < 1) {
     return paContinue;
   }
-  for (i = 0; i < framesPerBuffer; ++i) {
+  for (i = 0; i < framesPerBuffer; ++i)
+  {
     float sample = 0.0f;
-    float env = 1.0f;
+    float env_Volume = 1.0f;
+
     for (j = 0; j < VOICE_MAX; ++j) {
       if (voices[j].active > 0) {
 
         if (voices[j].envelope != 0 && g_envelopeSamples != 0) {
-          env += ENVELOPE_MAX * ((float)voices[j].envelope / g_envelopeSamples);
+          env_Volume += ENVELOPE_MAX * ((float)voices[j].envelope / g_envelopeSamples);
           voices[j].envelope--;
         }
 
@@ -77,41 +79,9 @@ static int audioCallback (const void *inputBuffer, void *outputBuffer,
           voice_active--;
         }
 
-        switch (modus) {
-          case SAW:
-            sample += env * voices[j].volume * (2.0f * voices[j].phase - 1.0f);
-            break;
-          case SQUARE:
-            if (voices[j].phase < 0.5f)
-              sample -= env * voices[j].volume;
-            else
-              sample += env * voices[j].volume;
-            break;
-          case TRIANGLE: {
-            float tri;
-            if (voices[j].phase < 0.5f)
-              tri = 4.0f * voices[j].phase - 1.0f;
-            else
-              tri = -4.0f * voices[j].phase + 3.0f;
-            sample += env * voices[j].volume * tri;
-            break;
-          }
-          case NOISE: {
-            float filtered = noise_filter(&voices[j]);
-            sample += env * voices[j].volume * filtered;
-            break;
-          }
-          default:
-            sample += env * voices[j].volume * sinf(2.0f * M_PI * voices[j].phase);
-        }
+        sample += env_Volume * modus_nextSample(&voices[j]);
 
-        voices[j].phase += (
-          voices[j].freq * powf(2.0f, voice_pitchbend * VOICE_PITCHBEND_RANGE)
-        ) / g_sampleRate;
-        if (voices[j].phase >= 1.0f) {
-          voices[j].phase -= 1.0f;
-        }
-
+        voice_increment(&voices[j]);
       }
     }
     /* after all voices are faded out, the release of sustain ends */
